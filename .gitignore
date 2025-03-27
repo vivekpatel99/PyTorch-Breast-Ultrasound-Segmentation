@@ -167,8 +167,50 @@ cython_debug/
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 #.idea/
 
-# Ruff stuff:
-.ruff_cache/
-
 # PyPI configuration file
 .pypirc
+
+kaggle.json
+.env
+datasets/*
+training_checkpoints/
+*.h5
+mlruns/
+output/
+_datasets/*
+*.json
+
+logs/*
+
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Pyre type checker
+.pyre/
+
+### VisualStudioCode
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+*.code-workspace
+**/.vscode
+
+# JetBrains
+.idea/
+
+# Data & Models
+*.h5
+*.tar
+*.tar.gz
+
+# Lightning-Hydra-Template
+configs/local/default.yaml
+data/
+logs/
+.env
+.autoenv

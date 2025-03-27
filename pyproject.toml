@@ -1,0 +1,23 @@
+[project]
+name = "pytorch-breast-ultrasound-segmentation"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "hydra-core>=1.3.2",
+    "ipykernel>=6.29.5",
+    "ipywidgets>=8.1.5",
+    "jupyter>=1.1.1",
+    "opencv-python>=4.11.0.86",
+    "python-dotenv>=1.0.1",
+    "hydra_colorlog",
+
+    # --------- loggers --------- #
+    "mlflow>=2.20.3",
+
+    # --------- others --------- #
+    "pyrootutils",     # standardizing the project root setup
+    "pre-commit",      # hooks for applying linters on commit
+    "rich",           # beautiful text formatting in terminal
+]

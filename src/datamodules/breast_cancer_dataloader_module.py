@@ -1,11 +1,14 @@
 import logging
 import os
 import sys
+from ast import Dict
+from email.mime import image
 from pathlib import Path
 
 import hydra
 import omegaconf
 import pyrootutils
+from numpy import imag
 from omegaconf import DictConfig
 from sklearn.model_selection import train_test_split
 from torch.utils.data import DataLoader, Dataset
@@ -18,20 +21,22 @@ class BreastCancerDataLoaderModule(Dataset):
     def __init__(
         self,
         data: DictConfig,  # This will receive the dataset config
+        transforms: DictConfig,
         batch_size: int = 64,
         num_workers: int = 0,
         pin_memory: bool = False,
         persistent_workers: bool = False,
     ):
 
-        # initialize the transforms from the config
-        # self.transform = v2.Compose(
-        #     [hydra.utils.instantiate(transform) for transform in cfg.data.train_transforms]
-        # )
         # initialize the BreastCancerDataset using the provided config - returns dict with initialize object
-        self.dataset = hydra.utils.instantiate(data)["dataset"]
+        self.dataset_config = hydra.utils.instantiate(data)
+        self.dataset = self.dataset_config["dataset"]
 
-        # self.dataset = BreastCancerDataset(data_dir=data_dir, transform=self.transform)
+        # initialize the transforms from the config
+        self.train_xform = v2.Compose(transforms["train_transforms"])
+        self.valid_xform = v2.Compose(transforms["val_transforms"])
+        self.test__xform = v2.Compose(transforms["test_transforms"])
+
         self.train_dataset, self.val_dataset = self.setup()
         self.batch_size: int = batch_size
         self.num_workers: int = num_workers
@@ -42,17 +47,21 @@ class BreastCancerDataLoaderModule(Dataset):
     def setup(self) -> tuple[Dataset, Dataset]:
         """Load data. Set variables: `self.train_dataset`, `self.val_dataset`, `self.test_dataset`."""
         log.info("Splitting dataset")
-        self.train_dataset, self.val_dataset = train_test_split(
+        train_dataset, self.val_dataset = train_test_split(
             self.dataset,
             test_size=0.2,
             random_state=42,
             shuffle=True,
             stratify=self.dataset.labels,
         )
+
+        log.info("Transforming dataset")
+
         return self.train_dataset, self.val_dataset
 
     def train_dataloader(self) -> DataLoader:
         log.info("Creating train dataloader")
+
         return DataLoader(
             self.train_dataset,
             shuffle=True,

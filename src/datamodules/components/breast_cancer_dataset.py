@@ -41,10 +41,6 @@ class BreastCancerDataset(torch.utils.data.Dataset):
         img = io.read_image(str(self.images[index])) / 255.0
         mask = io.read_image(str(self.masks[index])) / 255.0
 
-        # if self.transform:
-        #     img = self.transform(img)
-        #     mask = self.transform(mask)
-
         # Convert label to numerical representation
         label = self.labels[index]
         label_index = self.label_mapping[label]

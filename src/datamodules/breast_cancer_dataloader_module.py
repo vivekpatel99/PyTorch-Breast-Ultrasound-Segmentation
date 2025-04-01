@@ -1,15 +1,9 @@
 import logging
-import os
 import sys
-from ast import Dict
-from email.mime import image
-from pathlib import Path
 
 import hydra
-import omegaconf
 import pyrootutils
 import torch
-from numpy import imag
 from omegaconf import DictConfig
 from sklearn.model_selection import train_test_split
 from torch.utils.data import DataLoader, Dataset
@@ -119,9 +113,3 @@ if __name__ == "__main__":
     sys.path.append(str(root))
 
     main()
-    # cfg: DictConfig | omegaconf.ListConfig = omegaconf.OmegaConf.load(
-    #     root / "configs" / "datamodule" / "breast_cancer_datamodule.yaml"
-    # )
-    # Small hack to allow running this script without staring main config
-    # del cfg["defaults"]
-    # cfg["batch_size"] = 8

@@ -16,9 +16,6 @@ class BreastCancerDataset(torch.utils.data.Dataset):
     def __init__(self, data_dir: Path, dataset_url: str) -> None:
         self.label_mapping = {}
 
-        # self.transform = transform
-
-        # paths setup
         self.data_dir = Path(data_dir)
         self.root_data_dir = self.data_dir.parent
         self.dataset_url = dataset_url
@@ -85,20 +82,4 @@ def main(cfg: DictConfig) -> None:
 
 if __name__ == "__main__":
     root = pyrootutils.setup_root(__file__, pythonpath=True)
-    # dataset = BreastCancerDataset(
-    #     data_dir=root/'data/breast-ultrasound-images-dataset/Dataset_BUSI_with_GT',
-    #     dataset_url = 'https://www.kaggle.com/datasets/aryashah2k/breast-ultrasound-images-dataset'
-    #     )
-    # for img, target in dataset:
-    #     print(img.shape, target["masks"].shape, target["labels"].shape)
-    #     break
-    # import omegaconf
-    # import pyrootutils
-    # from omegaconf import DictConfig
-
     main()
-    # cfg: DictConfig | omegaconf.ListConfig = omegaconf.OmegaConf.load(
-    #     root / "configs" / "data"
-    # )
-
-    # dataset = hydra.utils.instantiate(cfg.dataset)

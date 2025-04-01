@@ -40,7 +40,7 @@ class BreastCancerDataLoaderModule(Dataset):
         persistent_workers: bool = False,
     ):
 
-        # initialize the BreastCancerDataset using the provided config - returns dict with initialize object
+        # initialize the BreastCancerDataset using the provided config - returns dict with initialize object with dict
         self.dataset_config = hydra.utils.instantiate(data)
         self.dataset = self.dataset_config["dataset"]
 

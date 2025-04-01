@@ -8,6 +8,7 @@ from pathlib import Path
 import hydra
 import omegaconf
 import pyrootutils
+import torch
 from numpy import imag
 from omegaconf import DictConfig
 from sklearn.model_selection import train_test_split
@@ -15,6 +16,23 @@ from torch.utils.data import DataLoader, Dataset
 from torchvision import transforms as v2
 
 log = logging.getLogger(__name__)
+
+
+class TransformWrapper(Dataset):
+    def __init__(self, dataset, transform) -> None:
+        self.dataset = dataset
+        self.transform = transform
+
+    def __len__(self) -> int:
+        return len(self.dataset)
+
+    def __getitem__(self, index) -> tuple[torch.Tensor, dict[str, torch.Tensor]]:
+        x, y = self.dataset[index]
+        if self.transform:
+            x = self.transform(x)
+            y["masks"] = self.transform(y["masks"])
+
+        return x, y
 
 
 class BreastCancerDataLoaderModule(Dataset):
@@ -47,7 +65,7 @@ class BreastCancerDataLoaderModule(Dataset):
     def setup(self) -> tuple[Dataset, Dataset]:
         """Load data. Set variables: `self.train_dataset`, `self.val_dataset`, `self.test_dataset`."""
         log.info("Splitting dataset")
-        train_dataset, self.val_dataset = train_test_split(
+        train_dataset, val_dataset = train_test_split(
             self.dataset,
             test_size=0.2,
             random_state=42,
@@ -55,15 +73,13 @@ class BreastCancerDataLoaderModule(Dataset):
             stratify=self.dataset.labels,
         )
 
-        log.info("Transforming dataset")
-
-        return self.train_dataset, self.val_dataset
+        return train_dataset, val_dataset
 
     def train_dataloader(self) -> DataLoader:
         log.info("Creating train dataloader")
 
         return DataLoader(
-            self.train_dataset,
+            TransformWrapper(self.train_dataset, self.train_xform),
             shuffle=True,
             batch_size=self.batch_size,
             num_workers=self.num_workers,
@@ -74,7 +90,7 @@ class BreastCancerDataLoaderModule(Dataset):
     def val_dataloader(self) -> DataLoader:
         log.info("Creating val dataloader")
         return DataLoader(
-            dataset=self.val_dataset,
+            dataset=TransformWrapper(self.val_dataset, self.valid_xform),
             batch_size=self.batch_size,
             num_workers=self.num_workers,
             pin_memory=self.pin_memory,

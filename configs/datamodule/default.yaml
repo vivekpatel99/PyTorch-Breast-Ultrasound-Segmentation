@@ -1,0 +1,6 @@
+# configs/datamodule/default.yaml
+
+batch_size: 32
+num_workers: 8
+pin_memory: True
+persistent_workers: True

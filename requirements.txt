@@ -8,7 +8,7 @@ hydra_colorlog
 tqdm
 python-dotenv
 opendatasets
-
+pytorch-lightning
 # --------- loggers --------- #
 mlflow>=2.20.3
 

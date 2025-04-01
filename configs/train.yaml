@@ -10,7 +10,7 @@ defaults:
   - paths: default
   - extras: default
   - hydra: default
-  # - datamodule: fashion_mnist_datamodule
+  - datamodule: breast_cancer_datamodule
   # - model: classification_model
   # - callbacks: default
 

@@ -1,8 +1,9 @@
 import logging
-import os
-from pathlib import Path, PurePath
+from pathlib import Path
 
+import hydra
 import opendatasets as od
+import pyrootutils
 import torch
 import torch.nn.functional as F
 from omegaconf import DictConfig
@@ -12,14 +13,18 @@ log = logging.getLogger(__name__)
 
 
 class BreastCancerDataset(torch.utils.data.Dataset):
-    def __init__(self, cfg: DictConfig):
+    def __init__(self, data_dir: Path, dataset_url: str) -> None:
         self.label_mapping = {}
-        self.num_classes = 0
+
+        # self.transform = transform
+
         # paths setup
-        self.root_dir = Path(cfg.paths.root_dir)
-        self.root_data_dir = Path(cfg.paths.root_data_dir)
-        self.dataset_url = cfg.data.url
-        self.data_dir = self.root_data_dir / Path(cfg.data.dataset_dir)
+        self.data_dir = Path(data_dir)
+        self.root_data_dir = self.data_dir.parent
+        self.dataset_url = dataset_url
+        self.class_names = [_dir.stem for _dir in self.data_dir.iterdir()]
+        self.num_classes = len(self.class_names)
+        self.label_mapping = {name: i for i, name in enumerate(self.class_names)}
 
         if len(list(self.root_data_dir.iterdir())) == 0:
             self.download_dataset()
@@ -33,26 +38,23 @@ class BreastCancerDataset(torch.utils.data.Dataset):
         return len(self.images)
 
     def __getitem__(self, index) -> tuple[torch.Tensor, dict[str, torch.Tensor]]:
-        img = self.images[index]
-        mask = self.masks[index]
-        label = self.labels[index]
+        img = io.read_image(str(self.images[index])) / 255.0
+        mask = io.read_image(str(self.masks[index])) / 255.0
 
-        img = io.read_image(str(img))
-        mask = io.read_image(str(mask))
+        # if self.transform:
+        #     img = self.transform(img)
+        #     mask = self.transform(mask)
 
         # Convert label to numerical representation
+        label = self.labels[index]
         label_index = self.label_mapping[label]
 
         # One-hot encode the label
         label_one_hot = F.one_hot(torch.tensor(label_index), num_classes=self.num_classes).float()
 
-        # Ensure mask is a single channel (grayscale)
-        # if mask.shape[0] > 1:
-        #     mask = mask[0:1, :, :]
-
         target = {}
-        target["mask"] = mask
-        target["label"] = label_one_hot
+        target["masks"] = mask
+        target["labels"] = label_one_hot
         return img, target
 
     def get_data(self) -> tuple[list[Path], list[Path], list[str]]:
@@ -60,11 +62,9 @@ class BreastCancerDataset(torch.utils.data.Dataset):
         org_images = []
         masks = []
         labels = []
-        self.num_classes = 0
+
         for _dir in self.data_dir.iterdir():
-            self.num_classes += 1
             dir_name = _dir.stem
-            self.label_mapping[dir_name] = self.num_classes
             img_nums = (img.stem.split("(")[-1].split(")")[0] for img in _dir.glob("*.png"))
             for num in img_nums:
                 # normal (1).png
@@ -79,28 +79,30 @@ class BreastCancerDataset(torch.utils.data.Dataset):
         return org_images, masks, labels
 
 
-if __name__ == "__main__":
-
-    import pyrootutils
-    from hydra import compose, initialize
-    from omegaconf import DictConfig
-
-    root: Path = pyrootutils.setup_root(
-        search_from=Path().cwd(),
-        indicator=[".git", "pyproject.toml"],
-        pythonpath=True,
-        dotenv=True,
-    )
-    print(root)
-    if os.getenv("DATA_ROOT") is None:
-        os.environ["DATA_ROOT"] = f"{root}/data"
-
-    with initialize(config_path="../../../configs", job_name="dataset-test", version_base=None):
-        cfg: DictConfig = compose(config_name="train.yaml")
-    print(cfg)
-    dataset = BreastCancerDataset(cfg=cfg)
+@hydra.main(version_base="1.2", config_path="../../../configs", config_name="train.yaml")
+def main(cfg: DictConfig) -> None:
+    dataset = hydra.utils.instantiate(cfg.data.dataset)
     for img, target in dataset:
-        print(img.shape)
-        print(target["mask"].shape)
-        print(target["label"], target["label"].shape)
+        print(img.shape, target["masks"].shape, target["labels"].shape)
         break
+
+
+if __name__ == "__main__":
+    root = pyrootutils.setup_root(__file__, pythonpath=True)
+    # dataset = BreastCancerDataset(
+    #     data_dir=root/'data/breast-ultrasound-images-dataset/Dataset_BUSI_with_GT',
+    #     dataset_url = 'https://www.kaggle.com/datasets/aryashah2k/breast-ultrasound-images-dataset'
+    #     )
+    # for img, target in dataset:
+    #     print(img.shape, target["masks"].shape, target["labels"].shape)
+    #     break
+    # import omegaconf
+    # import pyrootutils
+    # from omegaconf import DictConfig
+
+    main()
+    # cfg: DictConfig | omegaconf.ListConfig = omegaconf.OmegaConf.load(
+    #     root / "configs" / "data"
+    # )
+
+    # dataset = hydra.utils.instantiate(cfg.dataset)

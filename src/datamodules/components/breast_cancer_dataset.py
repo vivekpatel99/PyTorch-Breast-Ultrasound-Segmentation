@@ -7,7 +7,7 @@ import pyrootutils
 import torch
 import torch.nn.functional as F
 from omegaconf import DictConfig
-from torchvision import io
+from torchvision import io, tv_tensors
 
 log = logging.getLogger(__name__)
 
@@ -35,8 +35,10 @@ class BreastCancerDataset(torch.utils.data.Dataset):
         return len(self.images)
 
     def __getitem__(self, index) -> tuple[torch.Tensor, dict[str, torch.Tensor]]:
-        img = io.read_image(str(self.images[index])) / 255.0
-        mask = io.read_image(str(self.masks[index])) / 255.0
+        img = tv_tensors.Image(
+            io.decode_image(str(self.images[index]), mode=io.ImageReadMode.GRAY)
+        )
+        mask = tv_tensors.Mask(io.decode_image(str(self.masks[index]), mode=io.ImageReadMode.GRAY))
 
         # Convert label to numerical representation
         label = self.labels[index]
@@ -49,6 +51,10 @@ class BreastCancerDataset(torch.utils.data.Dataset):
         target["masks"] = mask
         target["labels"] = label_one_hot
         return img, target
+
+    @property
+    def classes(self) -> list[str]:
+        return self.class_names
 
     def get_data(self) -> tuple[list[Path], list[Path], list[str]]:
         log.info(f"Getting data from {self.data_dir}")

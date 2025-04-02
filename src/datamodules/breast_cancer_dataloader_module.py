@@ -7,33 +7,45 @@ import torch
 from omegaconf import DictConfig
 from sklearn.model_selection import train_test_split
 from torch.utils.data import DataLoader, Dataset
-from torchvision import transforms as v2
+from torchvision.transforms import v2 as T
 
 log = logging.getLogger(__name__)
 
 
 class TransformWrapper(Dataset):
-    def __init__(self, dataset, transform) -> None:
+    def __init__(self, dataset, xform: T.Compose) -> None:
         self.dataset = dataset
-        self.transform = transform
+        self.xforms = xform
+
+        self.train_todtype = T.ToDtype(torch.float32, scale=True)
+        self.mask_todtype = T.ToDtype(torch.uint8, scale=True)
 
     def __len__(self) -> int:
         return len(self.dataset)
 
-    def __getitem__(self, index) -> tuple[torch.Tensor, dict[str, torch.Tensor]]:
-        x, y = self.dataset[index]
-        if self.transform:
-            x = self.transform(x)
-            y["masks"] = self.transform(y["masks"])
+    def __getitem__(self, index) -> dict[str, torch.Tensor]:
+        # Get the raw image, mask, and label from the underlying dataset
+        img, target = self.dataset[index]
 
-        return x, y
+        # Apply transformations to the image and mask
+
+        transformed_img, transformed_target = self.xforms(img, target)
+
+        # Convert the transformed image to float32
+        transformed_img = self.train_todtype(transformed_img)
+
+        # # Convert the mask to uint8
+        transformed_target["mask"] = self.mask_todtype(transformed_target["masks"])
+
+        # Return the transformed image, mask, and label
+        return transformed_img, transformed_target
 
 
 class BreastCancerDataLoaderModule(Dataset):
     def __init__(
         self,
         data: DictConfig,  # This will receive the dataset config
-        transforms: DictConfig,
+        transforms_cfg: DictConfig,
         batch_size: int = 64,
         num_workers: int = 0,
         pin_memory: bool = False,
@@ -45,9 +57,11 @@ class BreastCancerDataLoaderModule(Dataset):
         self.dataset = self.dataset_config["dataset"]
 
         # initialize the transforms from the config
-        self.train_xform = v2.Compose(transforms["train_transforms"])
-        self.valid_xform = v2.Compose(transforms["val_transforms"])
-        self.test__xform = v2.Compose(transforms["test_transforms"])
+        self.train_xform = T.Compose(transforms_cfg["train_transforms"])
+
+        self.valid_xform = T.Compose(transforms_cfg["val_transforms"])
+        # self.test__xform = T.Compose(transforms_cfg["test_transforms"].append(
+        #      T.ToDtype(torch.float32, scale=True),))
 
         self.train_dataset, self.val_dataset = self.setup()
         self.batch_size: int = batch_size
@@ -69,27 +83,35 @@ class BreastCancerDataLoaderModule(Dataset):
 
         return train_dataset, val_dataset
 
+    def custom_collate(self, batch):
+        images = torch.stack([item[0] for item in batch])
+        masks = torch.stack([item[0] for item in batch])
+        return images, masks
+
     def train_dataloader(self) -> DataLoader:
         log.info("Creating train dataloader")
-
+        data = TransformWrapper(self.train_dataset, self.train_xform)
         return DataLoader(
-            TransformWrapper(self.train_dataset, self.train_xform),
+            data,
             shuffle=True,
             batch_size=self.batch_size,
             num_workers=self.num_workers,
             persistent_workers=self.persistent_workers,
             pin_memory=self.pin_memory,
+            # collate_fn=lambda batch: tuple(zip(*batch)),
         )
 
     def val_dataloader(self) -> DataLoader:
         log.info("Creating val dataloader")
+        data = TransformWrapper(self.val_dataset, self.valid_xform)
         return DataLoader(
-            dataset=TransformWrapper(self.val_dataset, self.valid_xform),
+            dataset=data,
             batch_size=self.batch_size,
             num_workers=self.num_workers,
             pin_memory=self.pin_memory,
             shuffle=False,
             persistent_workers=self.persistent_workers,
+            collate_fn=self.custom_collate,
         )
 
     def test_dataloader(self) -> DataLoader:

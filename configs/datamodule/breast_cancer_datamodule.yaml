@@ -4,11 +4,12 @@ _target_: src.datamodules.breast_cancer_dataloader_module.BreastCancerDataLoader
 # Include data config to ensure it's available
 # This is the key change
 defaults:
-  - /data: default
-  - _self_
+  - default # load values/arguments from default file
+  - /data: default # load values/arguments from data directory (defaults.yaml)
+  - _self_ # override with values/arguments from this file
 
   # This allows injecting any dataset configuration
-transforms:
+transforms_cfg:
   train_transforms:
     - _target_: torchvision.transforms.v2.Resize
       size: [256, 256]
@@ -25,6 +26,6 @@ transforms:
     - _target_: torchvision.transforms.v2.Resize
       size: [256, 256]
 
-  test_transforms:
-    - _target_: torchvision.transforms.v2.Resize
-      size: [256, 256]
+  # test_transforms:
+  #   - _target_: torchvision.transforms.v2.Resize
+  #     size: [256, 256]

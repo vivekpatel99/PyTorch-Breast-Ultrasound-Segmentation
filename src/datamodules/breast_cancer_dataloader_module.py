@@ -45,7 +45,6 @@ class BreastCancerDataLoaderModule(Dataset):
     def __init__(
         self,
         data: DictConfig,  # This will receive the dataset config
-        transforms_cfg: DictConfig,
         batch_size: int = 64,
         num_workers: int = 0,
         pin_memory: bool = False,
@@ -57,9 +56,9 @@ class BreastCancerDataLoaderModule(Dataset):
         self.dataset = self.dataset_config["dataset"]
 
         # initialize the transforms from the config
-        self.train_xform = T.Compose(transforms_cfg["train_transforms"])
+        self.train_xform = T.Compose(self.dataset_config["train_transforms"])
 
-        self.valid_xform = T.Compose(transforms_cfg["val_transforms"])
+        self.valid_xform = T.Compose(self.dataset_config["val_transforms"])
         # self.test__xform = T.Compose(transforms_cfg["test_transforms"].append(
         #      T.ToDtype(torch.float32, scale=True),))
 

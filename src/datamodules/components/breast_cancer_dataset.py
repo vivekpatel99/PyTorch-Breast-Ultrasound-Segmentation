@@ -56,6 +56,10 @@ class BreastCancerDataset(torch.utils.data.Dataset):
     def classes(self) -> list[str]:
         return self.class_names
 
+    @property
+    def class_to_idx(self) -> dict[str, int]:
+        return self.label_mapping
+
     def get_data(self) -> tuple[list[Path], list[Path], list[str]]:
         log.info(f"Getting data from {self.data_dir}")
         org_images = []

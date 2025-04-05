@@ -12,7 +12,7 @@ dependencies = [
     "opencv-python>=4.11.0.86",
     "python-dotenv>=1.0.1",
     "hydra_colorlog",
-
+    "pytest",
     # --------- loggers --------- #
     "mlflow>=2.20.3",
 
@@ -20,4 +20,8 @@ dependencies = [
     "pyrootutils",     # standardizing the project root setup
     "pre-commit",      # hooks for applying linters on commit
     "rich",           # beautiful text formatting in terminal
+]
+[tool.pytest.ini_options]
+pythonpath = [
+    "src"
 ]

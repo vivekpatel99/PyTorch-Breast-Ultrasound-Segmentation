@@ -1,32 +1,31 @@
-import unittest
-
+import pytest
 import torch
 
 from src.models.components.nets.vanilla_vggnet import VanillaVGGNet
 
 
-class TestVanillaVGGNet(unittest.TestCase):
+class TestVanillaVGGNet:
     def test_vggnet_creation(self) -> None:
         """Test if the VGGNet model can be created with different configurations."""
         # Test with default parameters
         model = VanillaVGGNet()
-        self.assertIsNotNone(model)
+        assert model is not None
 
         # Test with different input shape
         model = VanillaVGGNet(input_shape=(3, 128, 128))
-        self.assertIsNotNone(model)
+        assert model is not None
 
         # Test with different number of classes
         model = VanillaVGGNet(num_classes=5)
-        self.assertIsNotNone(model)
+        assert model is not None
 
         # Test with different vgg_type
         model = VanillaVGGNet(vgg_type="vgg11")
-        self.assertIsNotNone(model)
+        assert model is not None
         model = VanillaVGGNet(vgg_type="vgg13")
-        self.assertIsNotNone(model)
+        assert model is not None
         model = VanillaVGGNet(vgg_type="vgg16")
-        self.assertIsNotNone(model)
+        assert model is not None
 
     def test_vggnet_forward_pass(self) -> None:
         """Test if the forward pass of the VGGNet model works correctly."""
@@ -34,39 +33,39 @@ class TestVanillaVGGNet(unittest.TestCase):
         model = VanillaVGGNet()
         input_tensor = torch.randn(1, 1, 256, 256)  # Batch size of 1
         output = model(input_tensor)
-        self.assertEqual(output.shape, (1, 3))  # Check output shape
+        assert output.shape == (1, 3)  # Check output shape
 
         # Test with different input shape
         model = VanillaVGGNet(input_shape=(3, 128, 128))
         input_tensor = torch.randn(2, 3, 128, 128)  # Batch size of 2
         output = model(input_tensor)
-        self.assertEqual(output.shape, (2, 3))  # Check output shape
+        assert output.shape == (2, 3)  # Check output shape
 
         # Test with different number of classes
         model = VanillaVGGNet(num_classes=5)
         input_tensor = torch.randn(4, 1, 256, 256)  # Batch size of 4
         output = model(input_tensor)
-        self.assertEqual(output.shape, (4, 5))  # Check output shape
+        assert output.shape == (4, 5)  # Check output shape
 
         # Test with different vgg_type
         model = VanillaVGGNet(vgg_type="vgg11")
         input_tensor = torch.randn(1, 1, 256, 256)  # Batch size of 1
         output = model(input_tensor)
-        self.assertEqual(output.shape, (1, 3))  # Check output shape
+        assert output.shape == (1, 3)  # Check output shape
 
         model = VanillaVGGNet(vgg_type="vgg13")
         input_tensor = torch.randn(1, 1, 256, 256)  # Batch size of 1
         output = model(input_tensor)
-        self.assertEqual(output.shape, (1, 3))  # Check output shape
+        assert output.shape == (1, 3)  # Check output shape
 
         model = VanillaVGGNet(vgg_type="vgg16")
         input_tensor = torch.randn(1, 1, 256, 256)  # Batch size of 1
         output = model(input_tensor)
-        self.assertEqual(output.shape, (1, 3))  # Check output shape
+        assert output.shape == (1, 3)  # Check output shape
 
     def test_invalid_vgg_type(self) -> None:
         """Test if an invalid vgg_type raises a KeyError."""
-        with self.assertRaises(KeyError):
+        with pytest.raises(KeyError):
             VanillaVGGNet(vgg_type="vgg20")
 
     def test_conv_layers_output_shape(self) -> None:
@@ -74,22 +73,22 @@ class TestVanillaVGGNet(unittest.TestCase):
         model = VanillaVGGNet()
         input_tensor = torch.randn(1, 1, 256, 256)
         output = model._conv_layers(input_tensor)
-        self.assertEqual(output.shape, (1, 512, 4, 4))
+        assert output.shape == (1, 512, 4, 4)
 
         model = VanillaVGGNet(vgg_type="vgg11")
         input_tensor = torch.randn(1, 1, 256, 256)
         output = model._conv_layers(input_tensor)
-        self.assertEqual(output.shape, (1, 512, 4, 4))
+        assert output.shape == (1, 512, 4, 4)
 
         model = VanillaVGGNet(vgg_type="vgg13")
         input_tensor = torch.randn(1, 1, 256, 256)
         output = model._conv_layers(input_tensor)
-        self.assertEqual(output.shape, (1, 512, 4, 4))
+        assert output.shape == (1, 512, 4, 4)
 
         model = VanillaVGGNet(vgg_type="vgg16")
         input_tensor = torch.randn(1, 1, 256, 256)
         output = model._conv_layers(input_tensor)
-        self.assertEqual(output.shape, (1, 512, 4, 4))
+        assert output.shape == (1, 512, 4, 4)
 
     def test_classifier_output_shape(self) -> None:
         """Test if the output shape of the classifier is correct."""
@@ -97,14 +96,10 @@ class TestVanillaVGGNet(unittest.TestCase):
         dummy_input = torch.randn(1, 512, 4, 4)
         flattened_input = dummy_input.view(dummy_input.size(0), -1)
         output = model._classifier(flattened_input)
-        self.assertEqual(output.shape, (1, 3))
+        assert output.shape == (1, 3)
 
         model = VanillaVGGNet(num_classes=5)
         dummy_input = torch.randn(1, 512, 4, 4)
         flattened_input = dummy_input.view(dummy_input.size(0), -1)
         output = model._classifier(flattened_input)
-        self.assertEqual(output.shape, (1, 5))
-
-
-if __name__ == "__main__":
-    unittest.main()
+        assert output.shape == (1, 5)

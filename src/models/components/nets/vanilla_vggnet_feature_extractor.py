@@ -31,5 +31,9 @@ class VanillaVGGNetFeatureExtractor(torch.nn.Module, VGGConfig):
         Returns:
             torch.Tensor: Output tensor of shape (B, C', H', W') where C', H', W' are the output channels, height, and width after the convolutional layers.
         """
-        x = self._conv_layers(x)
-        return x
+        max_pool_output = []
+        for i, layer in enumerate(self._conv_layers):
+            x = layer(x)
+            if isinstance(layer, torch.nn.MaxPool2d):
+                max_pool_output.append(x)
+        return max_pool_output

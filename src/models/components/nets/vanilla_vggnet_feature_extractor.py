@@ -1,9 +1,9 @@
 import torch
 
-from src.models.components.nets.vggnet_utils import VGGConfig, VGGUtils
+from src.models.components.nets.vggnet_utils import VGGUtils
 
 
-class VanillaVGGNetFeatureExtractor(torch.nn.Module, VGGConfig):
+class VanillaVGGNetFeatureExtractor(torch.nn.Module, VGGUtils):
     def __init__(self, input_shape: tuple = (1, 256, 256), vgg_type: str = "vgg19"):
         """
         Initializes the VanillaVGGNet model as a feature extractor.
@@ -15,13 +15,12 @@ class VanillaVGGNetFeatureExtractor(torch.nn.Module, VGGConfig):
         This constructor sets up the convolutional layers based on the specified VGG architecture.
         """
 
-        super().__init__()
+        super().__init__()  # Initializes torch.nn.Module
+        VGGUtils.__init__(self)  # Initializes VGGUtils (sets up vgg_types)
         self.in_channels = input_shape[0]
-        self._conv_layers = VGGUtils._create_conv_layers(
-            self.vgg_types[vgg_type], self.in_channels
-        )
+        self._conv_layers = self._create_conv_layers(vgg_type, self.in_channels)
 
-    def forward(self, x) -> torch.Tensor:
+    def forward(self, x) -> list[torch.Tensor]:
         """
         Forward pass of the network.
 

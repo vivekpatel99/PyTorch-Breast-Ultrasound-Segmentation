@@ -7,5 +7,5 @@ WORKDIR /code
 RUN apt-get update -y && \
     apt-get upgrade -y  \
     # Packages need for opencv
-    && apt-get install  --no-install-recommends -y curl ffmpeg libsm6 libxext6 && \
+    && apt-get install -y curl ffmpeg libsm6 libxext6 && \
     apt-get clean && rm -rf /var/lib/apt/lists/*

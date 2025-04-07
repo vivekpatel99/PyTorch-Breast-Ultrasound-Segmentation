@@ -1,10 +1,18 @@
+import logging
+import sys
+
+import pyrootutils
 import torch
 import torch.nn as nn
 
-from src.models.components.nets.vggnet_utils import VGGConfig, VGGUtils
+try:
+    from src.models.components.nets.vggnet_utils import VGGUtils
+except ImportError:
+    from vggnet_utils import VGGUtils
+log = logging.getLogger(__name__)
 
 
-class VanillaVGGNet(nn.Module, VGGConfig):
+class VanillaVGGNet(nn.Module, VGGUtils):
     def __init__(
         self, input_shape: tuple = (1, 256, 256), num_classes: int = 3, vgg_type: str = "vgg19"
     ):
@@ -21,10 +29,10 @@ class VanillaVGGNet(nn.Module, VGGConfig):
         """
 
         super().__init__()
-
+        VGGUtils.__init__(self)  # Initializes VGGUtils (sets up vgg_types)
         self.in_channels = input_shape[0]
-        self._conv_layers = VGGUtils._create_conv_layers(
-            self.vgg_types[vgg_type], self.in_channels
+        self._conv_layers = self._create_conv_layers(
+            architecture=vgg_type, in_channels=self.in_channels
         )
         # Determine the output shape of the convolutional layers automatically
         with torch.no_grad():
@@ -59,3 +67,26 @@ class VanillaVGGNet(nn.Module, VGGConfig):
         x = x.reshape(x.shape[0], -1)
         x = self._classifier(x)
         return x
+
+
+if __name__ == "__main__":
+    root = pyrootutils.setup_root(
+        search_from=__file__,
+        indicator=[".git", "pyproject.toml"],
+        pythonpath=True,
+        dotenv=True,
+    )
+    sys.path.append(str(root))
+    batch_size, n_class, h, w = 2, 3, 224, 224
+    num_classes = 3
+    vgg_encoder = VanillaVGGNet(input_shape=(3, 224, 224), vgg_type="vgg11")
+
+    input_tensor = torch.randn(batch_size, n_class, h, w)  # Example input
+    output = vgg_encoder(input_tensor)
+    # Verify output
+    print(f"Input shape: {input_tensor.shape}")
+    print(f"Output shape: {output.shape}")
+    assert output.shape == (
+        batch_size,
+        num_classes,
+    ), f"Expected {(batch_size, n_class, h, w)}, got {output.shape}"

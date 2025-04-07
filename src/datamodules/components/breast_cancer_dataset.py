@@ -35,9 +35,7 @@ class BreastCancerDataset(torch.utils.data.Dataset):
         return len(self.images)
 
     def __getitem__(self, index) -> tuple[torch.Tensor, dict[str, torch.Tensor]]:
-        img = tv_tensors.Image(
-            io.decode_image(str(self.images[index]), mode=io.ImageReadMode.GRAY)
-        )
+        img = tv_tensors.Image(io.decode_image(str(self.images[index]), mode=io.ImageReadMode.RGB))
         mask = tv_tensors.Mask(io.decode_image(str(self.masks[index]), mode=io.ImageReadMode.GRAY))
 
         # Convert label to numerical representation

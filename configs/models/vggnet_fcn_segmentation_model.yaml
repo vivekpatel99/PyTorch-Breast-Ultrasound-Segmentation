@@ -1,0 +1,5 @@
+_target__: src.models.vggnet_fcn_segmentation_model.VGGNetFCNSegmentationModel
+
+defaults:
+  - num_classes: 3
+  - default # load values/arguments from default file

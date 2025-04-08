@@ -5,7 +5,6 @@ import hydra
 import opendatasets as od
 import pyrootutils
 import torch
-import torch.nn.functional as F
 from omegaconf import DictConfig
 from torchvision import io, tv_tensors
 
@@ -43,11 +42,11 @@ class BreastCancerDataset(torch.utils.data.Dataset):
         label_index = self.label_mapping[label]
 
         # One-hot encode the label
-        label_one_hot = F.one_hot(torch.tensor(label_index), num_classes=self.num_classes).float()
+        # label_one_hot = F.one_hot(torch.tensor(label_index), num_classes=self.num_classes).float()
 
         target = {}
         target["masks"] = mask
-        target["labels"] = label_one_hot
+        target["labels"] = label_index
         return img, target
 
     @property

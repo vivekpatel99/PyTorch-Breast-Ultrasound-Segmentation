@@ -6,11 +6,11 @@ from src.models.components.nets.vgg_net_encoder import VGGNetEncoder
 
 
 class VGGNetFCNSegmentationModel(nn.Module):
-    def __init__(self, num_classes) -> None:
+    def __init__(self, num_classes: int) -> None:
         super().__init__()
         self.encoder = VGGNetEncoder(pretrained_weights="DEFAULT", model="vgg16")
         self.decoder = FCN16Decoder(encoder=self.encoder, num_classes=num_classes)
 
     def forward(self, x) -> torch.Tensor:
-        x = self.encoder(x)
+        x = self.decoder(x)
         return x

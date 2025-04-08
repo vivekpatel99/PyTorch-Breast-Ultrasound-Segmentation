@@ -4,21 +4,26 @@ import sys
 import hydra
 import pyrootutils
 import torch
-from omegaconf import DictConfig
+from omegaconf import DictConfig, OmegaConf
 from sklearn.model_selection import train_test_split
 from torch.utils.data import DataLoader, Dataset
-from torchvision.transforms import v2 as T
+from torchvision.transforms import v2
 
 log = logging.getLogger(__name__)
 
 
 class TransformWrapper(Dataset):
-    def __init__(self, dataset, xform: T.Compose) -> None:
+    def __init__(
+        self,
+        dataset,
+        shared_xform: v2.Compose | None = None,
+        image_xform: v2.Compose | None = None,
+        mask_xform: v2.Compose | None = None,
+    ) -> None:
         self.dataset = dataset
-        self.xforms = xform
-
-        self.train_todtype = T.ToDtype(torch.float32, scale=True)
-        self.mask_todtype = T.ToDtype(torch.uint8, scale=True)
+        self.shared_xform = shared_xform
+        self.image_xform = image_xform
+        self.mask_xform = mask_xform
 
     def __len__(self) -> int:
         return len(self.dataset)
@@ -28,17 +33,17 @@ class TransformWrapper(Dataset):
         img, target = self.dataset[index]
 
         # Apply transformations to the image and mask
+        if self.shared_xform is not None:
+            img, target = self.shared_xform(img, target)
 
-        transformed_img, transformed_target = self.xforms(img, target)
+        if self.image_xform is not None:
+            img = self.image_xform(img)
 
-        # Convert the transformed image to float32
-        transformed_img = self.train_todtype(transformed_img)
-
-        # # Convert the mask to uint8
-        transformed_target["mask"] = self.mask_todtype(transformed_target["masks"])
+        if self.mask_xform is not None:
+            target["masks"] = self.mask_xform(target["masks"])
 
         # Return the transformed image, mask, and label
-        return transformed_img, transformed_target
+        return img, target
 
 
 class BreastCancerDataLoaderModule(Dataset):
@@ -50,24 +55,43 @@ class BreastCancerDataLoaderModule(Dataset):
         pin_memory: bool = False,
         persistent_workers: bool = False,
     ):
+        super().__init__()
+        self.image_xform = None
+        self.masks_xform = None
+        self.valid_shared_xform = None
+        self.valid_image_xform = None
+        self.valid_masks_xform = None
+        self.shared_xform = None
 
         # initialize the BreastCancerDataset using the provided config - returns dict with initialize object with dict
         self.dataset_config = hydra.utils.instantiate(data)
         self.dataset = self.dataset_config["dataset"]
 
         # initialize the transforms from the config
-        self.train_xform = T.Compose(self.dataset_config["train_transforms"])
 
-        self.valid_xform = T.Compose(self.dataset_config["val_transforms"])
-        # self.test__xform = T.Compose(transforms_cfg["test_transforms"].append(
-        #      T.ToDtype(torch.float32, scale=True),))
+        if self.dataset_config["train_shared_transforms"] is not None:
+            self.shared_xform = v2.Compose(self.dataset_config["train_shared_transforms"])
+
+        if self.dataset_config["train_image_trasforms"] is not None:
+            self.image_xform = v2.Compose(self.dataset_config["train_image_trasforms"])
+
+        if self.dataset_config["train_masks_transforms"] is not None:
+            self.masks_xform = v2.Compose(self.dataset_config["train_masks_transforms"])
+
+        if self.dataset_config["val_shared_transforms"] is not None:
+            self.valid_shared_xform = v2.Compose(self.dataset_config["val_shared_transforms"])
+
+        if self.dataset_config["val_image_transforms"] is not None:
+            self.valid_image_xform = v2.Compose(self.dataset_config["val_image_transforms"])
+
+        if self.dataset_config["val_masks_transforms"] is not None:
+            self.valid_masks_xform = v2.Compose(self.dataset_config["val_masks_transforms"])
 
         self.train_dataset, self.val_dataset = self.setup()
         self.batch_size: int = batch_size
         self.num_workers: int = num_workers
         self.pin_memory: bool = pin_memory
         self.persistent_workers: bool = persistent_workers
-        # self.test_dataset: Dataset | None  = None
 
     def setup(self) -> tuple[Dataset, Dataset]:
         """Load data. Set variables: `self.train_dataset`, `self.val_dataset`, `self.test_dataset`."""
@@ -83,7 +107,13 @@ class BreastCancerDataLoaderModule(Dataset):
 
     def train_dataloader(self) -> DataLoader:
         log.info("Creating train dataloader")
-        data = TransformWrapper(self.train_dataset, self.train_xform)
+        data = TransformWrapper(
+            dataset=self.train_dataset,
+            shared_xform=self.shared_xform,
+            image_xform=self.image_xform,
+            mask_xform=self.masks_xform,
+        )
+
         return DataLoader(
             data,
             shuffle=True,
@@ -95,7 +125,12 @@ class BreastCancerDataLoaderModule(Dataset):
 
     def val_dataloader(self) -> DataLoader:
         log.info("Creating val dataloader")
-        data = TransformWrapper(self.val_dataset, self.valid_xform)
+        data = TransformWrapper(
+            dataset=self.val_dataset,
+            shared_xform=self.valid_shared_xform,
+            image_xform=self.valid_image_xform,
+            mask_xform=self.valid_masks_xform,
+        )
         return DataLoader(
             dataset=data,
             batch_size=self.batch_size,
@@ -112,8 +147,19 @@ class BreastCancerDataLoaderModule(Dataset):
 @hydra.main(version_base="1.2", config_path="../../configs", config_name="train.yaml")
 def main(cfg: DictConfig) -> None:
     dataloader = hydra.utils.instantiate(cfg.datamodule)
-    _ = dataloader.train_dataloader()
+    train_dl = dataloader.train_dataloader()
     _ = dataloader.val_dataloader()
+    for images, targets in train_dl:
+        print(images.shape, targets["masks"].shape, targets["labels"].shape)
+
+        print(f"images:{images.dtype}, {images[0].min()}, {images[0].max()}")
+        print(
+            f'masks {targets["masks"].dtype}, {targets["masks"][0].min()}, {targets["masks"][0].max()}'
+        )
+        print(
+            f'labels {targets["labels"].dtype}, {targets["labels"][0].min()}, {targets["labels"][0].max()}'
+        )
+        break
 
 
 if __name__ == "__main__":
@@ -124,5 +170,7 @@ if __name__ == "__main__":
         dotenv=True,
     )
     sys.path.append(str(root))
+    # Register a resolver for torch dtypes
+    OmegaConf.register_new_resolver("torch_dtype", lambda name: getattr(torch, name))
 
     main()

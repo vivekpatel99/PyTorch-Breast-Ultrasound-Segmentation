@@ -1,9 +1,12 @@
+import logging
 import sys
 
 import pyrootutils
 import torch
 import torch.nn as nn
 from torchvision import models
+
+log = logging.getLogger(__name__)
 
 
 class VGGNetEncoder(nn.Module):
@@ -32,8 +35,9 @@ class VGGNetEncoder(nn.Module):
         }
         # Check if the model is supported
         if model not in vgg_models:
+            log.error(f"Unsupported VGG model: {model}")
             raise ValueError(f"Unsupported VGG model: {model}")
-
+        log.info(f"Loading VGG model: {model}")
         # Load the requested model
 
         if pretrained_weights:
@@ -55,9 +59,9 @@ class VGGNetEncoder(nn.Module):
                 self.pool_indices.append(i)
 
         if show_params:
-            print(f"Pool indices for {model}: {self.pool_indices}")
+            log.info(f"Pool indices for {model}: {self.pool_indices}")
             for i, layer in enumerate(self.vgg.features):
-                print(f"Layer {i}: {layer}")
+                log.info(f"Layer {i}: {layer}")
 
         # number of filters for the output convolutional layers
         self.final_conv = nn.Sequential(
@@ -79,7 +83,6 @@ class VGGNetEncoder(nn.Module):
         # input images are 224x224 pixels so they will be downsampled to 7x7 after the pooling layers above.
         # we can extract more features by chaining two more convolution layers.
         features["pool5"] = self.final_conv(x)
-        print(f"pool5 shape {features['pool5'].shape}")
 
         return features
 

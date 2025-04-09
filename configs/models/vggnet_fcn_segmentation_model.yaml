@@ -1,5 +1,5 @@
 model:
-  _target_: src.models.vggnet_fcn_segmentation_model.VGGNetFCNSegmentationModel
+  _target_: src.models.vggnet_fcn_segmentation_model.VGGNetFCN16SegmentationModel
   num_classes: 3
 
 defaults:

@@ -80,9 +80,18 @@ class FCN16Decoder(nn.Module):
             nn.ReLU(inplace=True),
             nn.BatchNorm2d(32),
         )
-        self.classifier = nn.Conv2d(32, num_classes, kernel_size=1)
+        self.mask_classifier = nn.Conv2d(32, num_classes, kernel_size=1)
+        self.image_classifier = nn.Sequential(
+            nn.AdaptiveAvgPool2d(output_size=1),
+            nn.Flatten(),
+            nn.Linear(4096, 512),
+            nn.ReLU(inplace=True),
+            nn.Linear(512, 256),
+            nn.ReLU(inplace=True),
+            nn.Linear(256, num_classes),
+        )
 
-    def forward(self, x) -> torch.Tensor:
+    def forward(self, x) -> dict[str, torch.Tensor]:
         encoder = self.encoder(x)
         pool5 = encoder["pool5"]
         pool4 = encoder["pool4"]
@@ -101,7 +110,7 @@ class FCN16Decoder(nn.Module):
         score = self.upsample2(score)
         score = self.upsample1(score)
 
-        return self.classifier(score)
+        return {"labels": self.image_classifier(pool5), "masks": self.mask_classifier(score)}
 
 
 class FCN8Decoder(nn.Module):
@@ -176,9 +185,18 @@ class FCN8Decoder(nn.Module):
             nn.ReLU(inplace=True),
             nn.BatchNorm2d(32),
         )
-        self.classifier = nn.Conv2d(32, num_classes, kernel_size=1)
+        self.mask_classifier = nn.Conv2d(32, num_classes, kernel_size=1)
+        self.image_classifier = nn.Sequential(
+            nn.AdaptiveAvgPool2d(output_size=1),
+            nn.Flatten(),
+            nn.Linear(4096, 512),
+            nn.ReLU(inplace=True),
+            nn.Linear(512, 256),
+            nn.ReLU(inplace=True),
+            nn.Linear(256, num_classes),
+        )
 
-    def forward(self, x) -> torch.Tensor:
+    def forward(self, x) -> dict[str, torch.Tensor]:
         encoder = self.encoder(x)
         pool5 = encoder["pool5"]
         pool4 = encoder["pool4"]
@@ -201,7 +219,7 @@ class FCN8Decoder(nn.Module):
         score = self.upsample2(score)
         score = self.upsample1(score)
 
-        return self.classifier(score)
+        return {"labels": self.image_classifier(pool5), "masks": self.mask_classifier(score)}
 
 
 if __name__ == "__main__":

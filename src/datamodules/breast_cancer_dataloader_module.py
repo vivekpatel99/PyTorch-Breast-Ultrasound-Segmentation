@@ -67,7 +67,7 @@ class BreastCancerDataLoaderModule(Dataset):
         self.dataset_config = hydra.utils.instantiate(data)
         self.dataset = self.dataset_config["dataset"]
         self.class_weights = self.dataset.class_weights
-
+        self.classes = self.dataset.classes
         # initialize the transforms from the config
 
         if self.dataset_config["train_shared_transforms"] is not None:

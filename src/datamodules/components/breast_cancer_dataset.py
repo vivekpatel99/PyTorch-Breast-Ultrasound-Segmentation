@@ -3,9 +3,11 @@ from pathlib import Path
 
 import hydra
 import opendatasets as od
+import pandas as pd
 import pyrootutils
 import torch
 from omegaconf import DictConfig
+from sklearn.utils.class_weight import compute_class_weight
 from torchvision import io, tv_tensors
 
 log = logging.getLogger(__name__)
@@ -21,6 +23,7 @@ class BreastCancerDataset(torch.utils.data.Dataset):
         self.class_names = [_dir.stem for _dir in self.data_dir.iterdir()]
         self.num_classes = len(self.class_names)
         self.label_mapping = {name: i for i, name in enumerate(self.class_names)}
+        self._class_weights: torch.Tensor | None = None
 
         if len(list(self.root_data_dir.iterdir())) == 0:
             self.download_dataset()
@@ -57,6 +60,20 @@ class BreastCancerDataset(torch.utils.data.Dataset):
     def class_to_idx(self) -> dict[str, int]:
         return self.label_mapping
 
+    def calculate_class_weights(self, org_images: list, masks: list, labels: list):
+        # --- Calculate Class Weights (using scikit-learn is convenient) ---
+        data = {"images": org_images, "masks": masks, "labels": labels}
+        df = pd.DataFrame(data)
+        class_weights = compute_class_weight(
+            class_weight="balanced", classes=df["labels"].unique(), y=df["labels"]
+        )
+        self._class_weights = torch.tensor(class_weights, dtype=torch.float32)
+        log.info(f"Class weights: {self._class_weights}")
+
+    @property
+    def class_weights(self) -> torch.Tensor | None:
+        return self._class_weights
+
     def get_data(self) -> tuple[list[Path], list[Path], list[str]]:
         log.info(f"Getting data from {self.data_dir}")
         org_images = []
@@ -75,6 +92,8 @@ class BreastCancerDataset(torch.utils.data.Dataset):
                 org_images.append(org_img_path)
                 labels.append(dir_name)
                 masks.append(mask_path)
+
+        self.calculate_class_weights(org_images=org_images, masks=masks, labels=labels)
 
         return org_images, masks, labels
 

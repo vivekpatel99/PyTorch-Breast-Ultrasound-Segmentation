@@ -66,6 +66,7 @@ class BreastCancerDataLoaderModule(Dataset):
         # initialize the BreastCancerDataset using the provided config - returns dict with initialize object with dict
         self.dataset_config = hydra.utils.instantiate(data)
         self.dataset = self.dataset_config["dataset"]
+        self.class_weights = self.dataset.class_weights
 
         # initialize the transforms from the config
 

@@ -14,7 +14,7 @@ log = logging.getLogger(__name__)
 
 
 class BreastCancerDataset(torch.utils.data.Dataset):
-    def __init__(self, data_dir: Path, dataset_url: str) -> None:
+    def __init__(self, data_dir: Path, dataset_url: str | None = None) -> None:
         self.label_mapping = {}
 
         self.data_dir = Path(data_dir)
@@ -31,6 +31,8 @@ class BreastCancerDataset(torch.utils.data.Dataset):
 
     def download_dataset(self) -> None:
         log.info(f"Downloading dataset from kaggle at {self.root_data_dir}")
+        if self.dataset_url is None:
+            raise ValueError("Dataset URL not provided")
         od.download(dataset_id_or_url=self.dataset_url, data_dir=str(self.root_data_dir))
 
     def __len__(self) -> int:

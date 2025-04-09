@@ -88,13 +88,13 @@ class BreastCancerDataLoaderModule(Dataset):
         if self.dataset_config["val_masks_transforms"] is not None:
             self.valid_masks_xform = v2.Compose(self.dataset_config["val_masks_transforms"])
 
-        self.train_dataset, self.val_dataset = self.setup()
+        self.train_dataset, self.val_dataset = self.split_and_preprocess_datasets()
         self.batch_size: int = batch_size
         self.num_workers: int = num_workers
         self.pin_memory: bool = pin_memory
         self.persistent_workers: bool = persistent_workers
 
-    def setup(self) -> tuple[Dataset, Dataset]:
+    def split_and_preprocess_datasets(self) -> tuple[Dataset, Dataset]:
         """Load data. Set variables: `self.train_dataset`, `self.val_dataset`, `self.test_dataset`."""
         log.info("Splitting dataset")
         train_dataset, val_dataset = train_test_split(
@@ -104,19 +104,31 @@ class BreastCancerDataLoaderModule(Dataset):
             shuffle=True,
             stratify=self.dataset.labels,
         )
-        return train_dataset, val_dataset
-
-    def train_dataloader(self) -> DataLoader:
-        log.info("Creating train dataloader")
-        data = TransformWrapper(
-            dataset=self.train_dataset,
+        train_dataset = TransformWrapper(
+            dataset=train_dataset,
             shared_xform=self.shared_xform,
             image_xform=self.image_xform,
             mask_xform=self.masks_xform,
         )
+        val_dataset = TransformWrapper(
+            dataset=val_dataset,
+            shared_xform=self.valid_shared_xform,
+            image_xform=self.valid_image_xform,
+            mask_xform=self.valid_masks_xform,
+        )
+        return train_dataset, val_dataset
+
+    def train_dataloader(self) -> DataLoader:
+        log.info("Creating train dataloader")
+        # data = TransformWrapper(
+        #     dataset=self.train_dataset,
+        #     shared_xform=self.shared_xform,
+        #     image_xform=self.image_xform,
+        #     mask_xform=self.masks_xform,
+        # )
 
         return DataLoader(
-            data,
+            self.train_dataset,
             shuffle=True,
             batch_size=self.batch_size,
             num_workers=self.num_workers,
@@ -126,14 +138,14 @@ class BreastCancerDataLoaderModule(Dataset):
 
     def val_dataloader(self) -> DataLoader:
         log.info("Creating val dataloader")
-        data = TransformWrapper(
-            dataset=self.val_dataset,
-            shared_xform=self.valid_shared_xform,
-            image_xform=self.valid_image_xform,
-            mask_xform=self.valid_masks_xform,
-        )
+        # data = TransformWrapper(
+        #     dataset=self.val_dataset,
+        #     shared_xform=self.valid_shared_xform,
+        #     image_xform=self.valid_image_xform,
+        #     mask_xform=self.valid_masks_xform,
+        # )
         return DataLoader(
-            dataset=data,
+            dataset=self.val_dataset,
             batch_size=self.batch_size,
             num_workers=self.num_workers,
             pin_memory=self.pin_memory,

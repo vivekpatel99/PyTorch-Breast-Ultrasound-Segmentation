@@ -8,10 +8,11 @@ from src.models.components.nets.vgg_net_encoder import VGGNetEncoder
 
 
 class FCN16Decoder(nn.Module):
-    def __init__(self, encoder: nn.Module, num_classes: int = 3):
+    def __init__(self, encoder: nn.Module, cls_num_classes: int = 3, seg_num_classes: int = 1):
         super().__init__()
         self.encoder = encoder
-        self.num_classes = num_classes
+        self.cls_num_classes = cls_num_classes
+        self.seg_num_classes = seg_num_classes
         self.upsample_5 = nn.Sequential(
             nn.ConvTranspose2d(
                 in_channels=4096,
@@ -80,7 +81,7 @@ class FCN16Decoder(nn.Module):
             nn.ReLU(inplace=True),
             nn.BatchNorm2d(32),
         )
-        self.mask_classifier = nn.Conv2d(32, num_classes, kernel_size=1)
+        self.mask_classifier = nn.Conv2d(32, self.seg_num_classes, kernel_size=1)
         self.image_classifier = nn.Sequential(
             nn.AdaptiveAvgPool2d(output_size=1),
             nn.Flatten(),
@@ -88,7 +89,7 @@ class FCN16Decoder(nn.Module):
             nn.ReLU(inplace=True),
             nn.Linear(512, 256),
             nn.ReLU(inplace=True),
-            nn.Linear(256, num_classes),
+            nn.Linear(256, self.cls_num_classes),
         )
 
     def forward(self, x) -> dict[str, torch.Tensor]:
@@ -114,10 +115,11 @@ class FCN16Decoder(nn.Module):
 
 
 class FCN8Decoder(nn.Module):
-    def __init__(self, encoder: nn.Module, num_classes: int = 3):
+    def __init__(self, encoder: nn.Module, cls_num_classes: int = 3, seg_num_classes: int = 1):
         super().__init__()
         self.encoder = encoder
-        self.num_classes = num_classes
+        self.cls_num_classes = cls_num_classes
+        self.seg_num_classes = seg_num_classes
         self.upsample_5 = nn.Sequential(
             nn.ConvTranspose2d(
                 in_channels=4096,
@@ -185,7 +187,7 @@ class FCN8Decoder(nn.Module):
             nn.ReLU(inplace=True),
             nn.BatchNorm2d(32),
         )
-        self.mask_classifier = nn.Conv2d(32, num_classes, kernel_size=1)
+        self.mask_classifier = nn.Conv2d(32, self.seg_num_classes, kernel_size=1)
         self.image_classifier = nn.Sequential(
             nn.AdaptiveAvgPool2d(output_size=1),
             nn.Flatten(),
@@ -193,7 +195,7 @@ class FCN8Decoder(nn.Module):
             nn.ReLU(inplace=True),
             nn.Linear(512, 256),
             nn.ReLU(inplace=True),
-            nn.Linear(256, num_classes),
+            nn.Linear(256, self.cls_num_classes),
         )
 
     def forward(self, x) -> dict[str, torch.Tensor]:
@@ -234,7 +236,7 @@ if __name__ == "__main__":
 
     # Create models
     encoder = VGGNetEncoder(pretrained_weights="DEFAULT", num_classes=n_class)
-    fcn8 = FCN8Decoder(encoder=encoder, num_classes=n_class)
+    fcn8 = FCN8Decoder(encoder=encoder, cls_num_classes=n_class)
 
     # Test input
     test_input = torch.randn(batch_size, 3, 224, 224)

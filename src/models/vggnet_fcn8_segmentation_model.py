@@ -19,7 +19,7 @@ class VGGNetFCN8SegmentationModel(SegmentationBaseModel):
         )
 
         self.encoder = VGGNetEncoder(pretrained_weights="DEFAULT", model=vggnet_type)
-        self.decoder = FCN8Decoder(encoder=self.encoder, num_classes=num_classes)
+        self.decoder = FCN8Decoder(encoder=self.encoder, cls_num_classes=num_classes)
 
     def forward(self, x) -> dict[str, torch.Tensor]:
         return self.decoder(x)

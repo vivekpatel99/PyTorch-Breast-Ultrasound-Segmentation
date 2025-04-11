@@ -55,10 +55,10 @@ class MultiClassSoftDiceLoss(nn.Module):
         dice_sum = 0
 
         for class_index in range(num_classes):
-            class_true = y_true[:, class_index, ...]
+            # class_true = y_true[:, class_index, ...] # y_true is already B, 1, H, W
             class_pred = y_pred[:, class_index, ...]
-            intersection = (class_true * class_pred).sum()
-            union = class_true.sum() + class_pred.sum()
+            intersection = (y_true * class_pred).sum()
+            union = y_true.sum() + class_pred.sum()
             dice_score = (2.0 * intersection + self.epsilon) / (union + self.epsilon)
             dice_sum += 1 - dice_score
 

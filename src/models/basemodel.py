@@ -3,6 +3,7 @@ import logging
 
 import torch
 from torch import Tensor, nn
+from torch.nn import functional as F
 
 from src.losses.dice_loss import dice_coefficient_metric
 
@@ -113,14 +114,12 @@ class SegmentationBaseModel(nn.Module):
         Returns:
             A tuple containing (segmentation_loss, dice_score).
         """
-        # 1. Calculate Loss (using raw logits)
-        # Assumes segmentation_criterion expects [B, C, H, W] logits and [B, H, W] targets
+        seg_logits = F.sigmoid(seg_logits)
+        # pred_masks = self._predict_masks(seg_logits)
         seg_loss = self.segmentation_criterion(seg_logits, gt_masks)
 
-        # 2. Calculate Dice Score (using predicted masks)
-        pred_masks = self._predict_masks(seg_logits)
         # Ensure dice_coefficient_metric handles multi-class correctly if needed
-        dice_score = dice_coefficient_metric(pred_masks, gt_masks)
+        dice_score = dice_coefficient_metric(seg_logits, gt_masks)
 
         return seg_loss, dice_score
 
@@ -154,8 +153,8 @@ class SegmentationBaseModel(nn.Module):
 
         # --- Prepare Ground Truth ---
         gt_labels = targets["labels"]  # Shape [B]
-        gt_masks = self._prepare_gt_masks(targets["masks"])  # Shape [B, H, W]
-
+        # gt_masks = self._prepare_gt_masks(targets["masks"])  # Shape [B, H, W]
+        gt_masks = targets["masks"]  # Shape [B, 1, H, W]
         # --- Calculate Metrics ---
         seg_loss, seg_dice = self._calculate_segmentation_metrics(seg_logits, gt_masks)
         cls_loss, cls_acc = self._calculate_classification_metrics(cls_logits, gt_labels)
@@ -231,15 +230,18 @@ class SegmentationBaseModel(nn.Module):
             log_items.append(
                 f"{MetricKey.VAL_CLS_ACC.value}={results[MetricKey.VAL_CLS_ACC.value]:.4f}"
             )
+        if MetricKey.SEG_LOSS.value in results:
+            log_items.append(f"{MetricKey.SEG_LOSS.value}={results[MetricKey.SEG_LOSS.value]:.4f}")
         if MetricKey.VAL_SEG_LOSS.value in results:
             log_items.append(
                 f"{MetricKey.VAL_SEG_LOSS.value}={results[MetricKey.VAL_SEG_LOSS.value]:.4f}"
             )
+        if MetricKey.SEG_DICE.value in results:
+            log_items.append(f"{MetricKey.SEG_DICE.value}={results[MetricKey.SEG_DICE.value]:.4f}")
         if MetricKey.VAL_SEG_DICE.value in results:
             log_items.append(
                 f"{MetricKey.VAL_SEG_DICE.value}={results[MetricKey.VAL_SEG_DICE.value]:.4f}"
             )
-
         log_message += ", ".join(log_items)
 
         log.info(log_message)

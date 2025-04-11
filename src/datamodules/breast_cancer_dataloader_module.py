@@ -42,6 +42,9 @@ class TransformWrapper(Dataset):
         if self.mask_xform is not None:
             target["masks"] = self.mask_xform(target["masks"])
 
+        # Convert masks to binary
+        target["masks"][target["masks"] == 255.0] = 1.0
+
         # Return the transformed image, mask, and label
         return img, target
 

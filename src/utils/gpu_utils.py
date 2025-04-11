@@ -30,16 +30,9 @@ def to_device(data, device) -> torch.nn.Module | torch.Tensor | list | dict | tu
     elif isinstance(data, dict):
         # If it's a dictionary, apply to_device recursively to each value
         return {k: to_device(v, device) for k, v in data.items()}
-    elif isinstance(data, torch.Tensor):
-        # If it's a tensor, move it to the device
+    else:
         # non_blocking=True can potentially speed up transfers for CUDA devices
         return data.to(device, non_blocking=True)
-    # check if data is torch model
-    elif isinstance(data, torch.nn.Module):
-        return data.to(device)
-    else:
-        log.error(f"Unsupported data type: {type(data)}")
-        raise Exception(f"Unsupported data type: {type(data)}")
 
 
 class DeviceDataLoader:

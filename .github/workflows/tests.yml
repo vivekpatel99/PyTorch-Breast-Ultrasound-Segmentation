@@ -7,17 +7,23 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.8", "3.9", "3.10"]
+        python-version: ["3.11"]
     steps:
-    - uses: actions/checkout@v4
-    - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v3
-      with:
-        python-version: ${{ matrix.python-version }}
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install pylint
-    - name: Analysing the code with pylint
-      run: |
-        pylint $(git ls-files '*.py')
+      - uses: actions/checkout@v4
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v3
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          # Install PyTorch first - check https://pytorch.org/ for specific versions/CUDA if needed
+          # This command installs the CPU version. Adjust if you need GPU support.
+          pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
+          # Install pytest and other dependencies (consider using a requirements.txt file)
+          pip install pytest
+          # If you have a requirements file, uncomment the line below and remove the direct installs above
+          pip install -r requirements.txt # Or requirements-dev.txt
+      - name: Run tests with pytest
+        run: |
+          pytest

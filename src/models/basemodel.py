@@ -4,6 +4,7 @@ import logging
 import torch
 from torch import Tensor, nn
 from torch.nn import functional as F
+from torchmetrics import AUROC
 
 from src.losses.dice_loss import dice_coefficient_metric
 
@@ -16,8 +17,10 @@ class MetricKey(enum.Enum):
     # Classification
     CLS_LOSS = "cls_loss"
     CLS_ACC = "cls_acc"
+    CLS_AUROC = "cls_auroc"
     VAL_CLS_LOSS = "val_cls_loss"
     VAL_CLS_ACC = "val_cls_acc"
+    VAL_CLS_AUROC = "val_cls_auroc"
 
     # Segmentation
     SEG_LOSS = "seg_loss"
@@ -68,7 +71,7 @@ class SegmentationBaseModel(nn.Module):
 
         self.segmentation_criterion = segmentation_criterion
         self.classification_criterion = classification_criterion
-
+        self.cls_auroc = AUROC(task="multiclass", num_classes=3)
         log.info(f"Segmentation Criterion: {type(self.segmentation_criterion).__name__}")
         log.info(f"Classification Criterion: {type(self.classification_criterion).__name__}")
 
@@ -93,14 +96,6 @@ class SegmentationBaseModel(nn.Module):
         # Adjust if your criterion requires a different type (e.g., float for BCE)
         return processed_masks.long()
 
-    def _predict_masks(self, seg_logits: Tensor) -> Tensor:
-        """
-        Converts segmentation logits to predicted class indices.
-        Assumes logits are of shape [B, C, H, W].
-        """
-        # Use argmax for multi-class segmentation prediction
-        return torch.argmax(seg_logits, dim=1)  # Output shape [B, H, W]
-
     def _calculate_segmentation_metrics(
         self, seg_logits: Tensor, gt_masks: Tensor
     ) -> tuple[Tensor, Tensor]:
@@ -115,7 +110,6 @@ class SegmentationBaseModel(nn.Module):
             A tuple containing (segmentation_loss, dice_score).
         """
         seg_logits = F.sigmoid(seg_logits)
-        # pred_masks = self._predict_masks(seg_logits)
         seg_loss = self.segmentation_criterion(seg_logits, gt_masks)
 
         # Ensure dice_coefficient_metric handles multi-class correctly if needed
@@ -138,7 +132,8 @@ class SegmentationBaseModel(nn.Module):
         """
         cls_loss = self.classification_criterion(cls_logits, gt_labels)
         cls_acc = accuracy(cls_logits, gt_labels)
-        return cls_loss, cls_acc
+        cls_auroc = self.cls_auroc(cls_logits, gt_labels)
+        return cls_loss, cls_acc, cls_auroc
 
     def _shared_step(self, batch: tuple[Tensor, dict[str, Tensor]]) -> dict[str, Tensor]:
         """Performs a forward pass and calculates losses/metrics."""
@@ -157,13 +152,16 @@ class SegmentationBaseModel(nn.Module):
         gt_masks = targets["masks"]  # Shape [B, 1, H, W]
         # --- Calculate Metrics ---
         seg_loss, seg_dice = self._calculate_segmentation_metrics(seg_logits, gt_masks)
-        cls_loss, cls_acc = self._calculate_classification_metrics(cls_logits, gt_labels)
+        cls_loss, cls_acc, cls_auroc = self._calculate_classification_metrics(
+            cls_logits, gt_labels
+        )
 
         return {
             "seg_loss": seg_loss,
             "seg_dice": seg_dice,
             "cls_loss": cls_loss,
             "cls_acc": cls_acc,
+            "cls_auroc": cls_auroc,
             # Optional: Combine losses if needed for backpropagation
             # "total_loss": seg_loss + cls_loss # Example weighting
         }
@@ -178,6 +176,7 @@ class SegmentationBaseModel(nn.Module):
             MetricKey.SEG_DICE.value: metrics["seg_dice"],
             MetricKey.CLS_LOSS.value: metrics["cls_loss"],
             MetricKey.CLS_ACC.value: metrics["cls_acc"],
+            MetricKey.CLS_AUROC.value: metrics["cls_auroc"],
             # Return total loss if the optimizer needs it directly
             # MetricKey.TOTAL_LOSS.value: metrics["total_loss"]
         }
@@ -192,6 +191,7 @@ class SegmentationBaseModel(nn.Module):
             MetricKey.VAL_SEG_DICE.value: metrics["seg_dice"].detach(),
             MetricKey.VAL_CLS_LOSS.value: metrics["cls_loss"].detach(),
             MetricKey.VAL_CLS_ACC.value: metrics["cls_acc"].detach(),
+            MetricKey.VAL_CLS_AUROC.value: metrics["cls_auroc"].detach(),
         }
 
     def validation_epoch_end(self, outputs: list[dict[str, Tensor]]) -> dict[str, float]:
@@ -222,14 +222,28 @@ class SegmentationBaseModel(nn.Module):
         log_message = f"Epoch [{epoch}] Validation Results: "
         log_items = []
         # Use MetricKey to ensure consistent naming
+        if MetricKey.CLS_LOSS.value in results:
+            log_items.append(f"{MetricKey.CLS_LOSS.value}={results[MetricKey.CLS_LOSS.value]:.4f}")
         if MetricKey.VAL_CLS_LOSS.value in results:
             log_items.append(
                 f"{MetricKey.VAL_CLS_LOSS.value}={results[MetricKey.VAL_CLS_LOSS.value]:.4f}"
             )
+        if MetricKey.CLS_ACC.value in results:
+            log_items.append(f"{MetricKey.CLS_ACC.value}={results[MetricKey.CLS_ACC.value]:.4f}")
         if MetricKey.VAL_CLS_ACC.value in results:
             log_items.append(
                 f"{MetricKey.VAL_CLS_ACC.value}={results[MetricKey.VAL_CLS_ACC.value]:.4f}"
             )
+        if MetricKey.CLS_AUROC.value in results:
+            log_items.append(
+                f"{MetricKey.CLS_AUROC.value}={results[MetricKey.CLS_AUROC.value]:.4f}"
+            )
+
+        if MetricKey.VAL_CLS_AUROC.value in results:
+            log_items.append(
+                f"{MetricKey.VAL_CLS_AUROC.value}={results[MetricKey.VAL_CLS_AUROC.value]:.4f}"
+            )
+
         if MetricKey.SEG_LOSS.value in results:
             log_items.append(f"{MetricKey.SEG_LOSS.value}={results[MetricKey.SEG_LOSS.value]:.4f}")
         if MetricKey.VAL_SEG_LOSS.value in results:

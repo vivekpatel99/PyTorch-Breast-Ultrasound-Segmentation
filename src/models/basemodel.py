@@ -31,15 +31,10 @@ class MetricKey(enum.Enum):
 
 def accuracy(preds: Tensor, labels: Tensor) -> Tensor:
     """Calculates classification accuracy."""
-    # Ensure tensors are on the same device
-    if preds.device != labels.device:
-        labels = labels.to(preds.device)
 
     pred_labels = torch.argmax(preds, dim=1)
     correct = torch.sum(pred_labels == labels).item()
-    total = len(preds)
-    if total == 0:
-        return torch.tensor(0.0, device=preds.device)
+    total = len(pred_labels)
     return torch.tensor(correct / total, device=preds.device)
 
 

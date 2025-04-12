@@ -1,8 +1,11 @@
+import logging
 from typing import Any
 
 import torch
 
 from src.models.basemodel import MetricKey
+
+log = logging.getLogger(__name__)
 
 
 @torch.no_grad()
@@ -27,11 +30,13 @@ def fit(
     device_type: str = "cuda",
     dtype=torch.float16,
 ) -> list[dict[str, float]]:
+    log.info(f"Training on {device_type}")
     torch.cuda.empty_cache()
     history = []
     result = {}
 
     scaler = torch.GradScaler()
+
     for epoch in range(epochs):
         # Training Phase
         model.train()
@@ -90,4 +95,5 @@ def fit(
 
         model.epoch_end(epoch, result)
         history.append(result)
+    log.info("Finished Training")
     return history

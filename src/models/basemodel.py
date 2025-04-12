@@ -28,9 +28,9 @@ class MetricKey(enum.Enum):
     VAL_SEG_LOSS = "val_seg_loss"
     VAL_SEG_DICE = "val_seg_dice"
 
-    # Combined/Overall (Optional)
-    # TOTAL_LOSS = "total_loss"
-    # VAL_TOTAL_LOSS = "val_total_loss"
+    # Combined/Overall
+    TOTAL_LOSS = "total_loss"
+    VAL_TOTAL_LOSS = "val_total_loss"
 
 
 def accuracy(preds: Tensor, labels: Tensor) -> Tensor:
@@ -222,6 +222,11 @@ class SegmentationBaseModel(nn.Module):
         log_message = f"Epoch [{epoch}] Validation Results: "
         log_items = []
         # Use MetricKey to ensure consistent naming
+        if MetricKey.TOTAL_LOSS.value in results:
+            log_items.append(
+                f"{MetricKey.TOTAL_LOSS.value}={results[MetricKey.TOTAL_LOSS.value]:.4f}"
+            )
+
         if MetricKey.CLS_LOSS.value in results:
             log_items.append(f"{MetricKey.CLS_LOSS.value}={results[MetricKey.CLS_LOSS.value]:.4f}")
         if MetricKey.VAL_CLS_LOSS.value in results:

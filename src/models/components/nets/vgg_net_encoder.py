@@ -13,7 +13,6 @@ class VGGNetEncoder(nn.Module):
     def __init__(
         self,
         pretrained_weights: str | None = "DEFAULT",
-        num_classes: int = 3,
         model: str = "vgg11",
         requires_grad: bool = True,
         remove_fc: bool = True,
@@ -21,7 +20,6 @@ class VGGNetEncoder(nn.Module):
     ):
         super().__init__()
         self.model_name = model
-        self.num_classes = num_classes
         # Create a dictionary mapping model names to model constructors
         vgg_models = {
             "vgg11": models.vgg11,

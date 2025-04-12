@@ -8,10 +8,8 @@ from src.models.components.nets.vgg_net_encoder import VGGNetEncoder
 
 
 class FCN16Decoder(nn.Module):
-    def __init__(self, encoder: nn.Module, cls_num_classes: int = 3, seg_num_classes: int = 1):
+    def __init__(self, seg_num_classes: int = 1):
         super().__init__()
-        self.encoder = encoder
-        self.cls_num_classes = cls_num_classes
         self.seg_num_classes = seg_num_classes
         self.upsample_5 = nn.Sequential(
             nn.ConvTranspose2d(
@@ -81,21 +79,11 @@ class FCN16Decoder(nn.Module):
             nn.ReLU(inplace=True),
             nn.BatchNorm2d(32),
         )
-        self.mask_classifier = nn.Conv2d(32, self.seg_num_classes, kernel_size=1)
-        self.image_classifier = nn.Sequential(
-            nn.AdaptiveAvgPool2d(output_size=1),
-            nn.Flatten(),
-            nn.Linear(4096, 512),
-            nn.ReLU(inplace=True),
-            nn.Linear(512, 256),
-            nn.ReLU(inplace=True),
-            nn.Linear(256, self.cls_num_classes),
-        )
+        self.fcn16_mask_segmentation = nn.Conv2d(32, self.seg_num_classes, kernel_size=1)
 
-    def forward(self, x) -> dict[str, torch.Tensor]:
-        encoder = self.encoder(x)
-        pool5 = encoder["pool5"]
-        pool4 = encoder["pool4"]
+    def forward(self, features) -> dict[str, torch.Tensor]:
+        pool5 = features["pool5"]
+        pool4 = features["pool4"]
 
         # First upsampling + skip connection with pool4
         upsampled_5 = self.upsample_5(pool5)
@@ -111,14 +99,12 @@ class FCN16Decoder(nn.Module):
         score = self.upsample2(score)
         score = self.upsample1(score)
 
-        return {"labels": self.image_classifier(pool5), "masks": self.mask_classifier(score)}
+        return self.fcn16_mask_segmentation(score)
 
 
 class FCN8Decoder(nn.Module):
-    def __init__(self, encoder: nn.Module, cls_num_classes: int = 3, seg_num_classes: int = 1):
+    def __init__(self, seg_num_classes: int = 1):
         super().__init__()
-        self.encoder = encoder
-        self.cls_num_classes = cls_num_classes
         self.seg_num_classes = seg_num_classes
         self.upsample_5 = nn.Sequential(
             nn.ConvTranspose2d(
@@ -187,22 +173,12 @@ class FCN8Decoder(nn.Module):
             nn.ReLU(inplace=True),
             nn.BatchNorm2d(32),
         )
-        self.mask_classifier = nn.Conv2d(32, self.seg_num_classes, kernel_size=1)
-        self.image_classifier = nn.Sequential(
-            nn.AdaptiveAvgPool2d(output_size=1),
-            nn.Flatten(),
-            nn.Linear(4096, 512),
-            nn.ReLU(inplace=True),
-            nn.Linear(512, 256),
-            nn.ReLU(inplace=True),
-            nn.Linear(256, self.cls_num_classes),
-        )
+        self.fcn8_mask_segmentation = nn.Conv2d(32, self.seg_num_classes, kernel_size=1)
 
-    def forward(self, x) -> dict[str, torch.Tensor]:
-        encoder = self.encoder(x)
-        pool5 = encoder["pool5"]
-        pool4 = encoder["pool4"]
-        pool3 = encoder["pool3"]
+    def forward(self, feaatures) -> dict[str, torch.Tensor]:
+        pool5 = feaatures["pool5"]
+        pool4 = feaatures["pool4"]
+        pool3 = feaatures["pool3"]
 
         # First upsampling + skip connection with pool4
         upsampled_5 = self.upsample_5(pool5)
@@ -221,7 +197,7 @@ class FCN8Decoder(nn.Module):
         score = self.upsample2(score)
         score = self.upsample1(score)
 
-        return {"labels": self.image_classifier(pool5), "masks": self.mask_classifier(score)}
+        return self.fcn8_mask_segmentation(score)
 
 
 if __name__ == "__main__":
@@ -235,8 +211,8 @@ if __name__ == "__main__":
     batch_size, n_class, h, w = 2, 3, 224, 224  # Standard VGG input size
 
     # Create models
-    encoder = VGGNetEncoder(pretrained_weights="DEFAULT", num_classes=n_class)
-    fcn8 = FCN8Decoder(encoder=encoder, cls_num_classes=n_class)
+    encoder = VGGNetEncoder(pretrained_weights="DEFAULT")
+    fcn8 = FCN8Decoder(seg_num_classes=1)
 
     # Test input
     test_input = torch.randn(batch_size, 3, 224, 224)

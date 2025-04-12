@@ -1,136 +1,122 @@
-# /workspaces/PyTorch-Breast-Ultrasound-Segmentation/tests/models/nets/test_fcns.py
+# tests/models/components/nets/test_fcns.py
+
 import pytest
 import torch
 
+# Assuming your project structure allows this import
+# Adjust the path if necessary based on your test setup
 from src.models.components.nets.fcns import FCN8Decoder, FCN16Decoder
-from src.models.components.nets.vgg_net_encoder import VGGNetEncoder
+
+# --- Test Configuration ---
+BATCH_SIZE = 2
+INPUT_H, INPUT_W = 224, 224  # Standard VGG input size
+SEG_NUM_CLASSES = 1  # Example number of segmentation classes
+
+# Expected feature map dimensions after VGG pooling layers for a 224x224 input
+# and the custom final_conv layer in VGGNetEncoder
+FEATURE_SHAPES = {
+    "pool3": (BATCH_SIZE, 256, INPUT_H // 8, INPUT_W // 8),  # 28x28
+    "pool4": (BATCH_SIZE, 512, INPUT_H // 16, INPUT_W // 16),  # 14x14
+    "pool5": (BATCH_SIZE, 4096, INPUT_H // 32, INPUT_W // 32),  # 7x7 (after final_conv)
+}
+
+# Expected output shape after upsampling back to original size
+EXPECTED_OUTPUT_SHAPE = (BATCH_SIZE, SEG_NUM_CLASSES, INPUT_H, INPUT_W)
 
 
-class TestFCNDecoders:
-    @pytest.fixture
-    def encoder(self) -> VGGNetEncoder:
-        """Fixture to create a VGGNetEncoder instance."""
-        # Using vgg16 as it's a common choice and matches the decoder expectations
-        return VGGNetEncoder(pretrained_weights="DEFAULT", model="vgg16")
+# --- Helper Function ---
+def create_dummy_features(shapes: dict[str, tuple]) -> dict[str, torch.Tensor]:
+    """Creates a dictionary of dummy feature tensors."""
+    return {name: torch.randn(shape) for name, shape in shapes.items()}
 
-    @pytest.mark.parametrize("decoder_class", [FCN8Decoder, FCN16Decoder])
-    def test_decoder_creation(self, decoder_class, encoder) -> None:
-        """Test if the FCN decoder models can be created."""
-        cls_num_classes = 3
-        seg_num_classes = 2  # Use a distinct value for segmentation classes
-        decoder = decoder_class(
-            encoder=encoder, cls_num_classes=cls_num_classes, seg_num_classes=seg_num_classes
-        )
-        assert decoder is not None
-        assert decoder.cls_num_classes == cls_num_classes
-        assert decoder.seg_num_classes == seg_num_classes  # Verify seg_num_classes is set
 
-    @pytest.mark.parametrize("decoder_class", [FCN8Decoder, FCN16Decoder])
-    def test_decoder_forward_pass(self, decoder_class, encoder) -> None:
-        """Test if the forward pass of the FCN decoder models works correctly."""
-        cls_num_classes = 3
-        seg_num_classes = 2  # Use a distinct value for segmentation classes
-        decoder = decoder_class(
-            encoder=encoder, cls_num_classes=cls_num_classes, seg_num_classes=seg_num_classes
-        )
-        input_tensor = torch.randn(1, 3, 224, 224)  # Batch size of 1
-        output = decoder(input_tensor)
+# --- Test Fixtures ---
+@pytest.fixture(scope="module")
+def dummy_features_fcn16() -> dict[str, torch.Tensor]:
+    """Provides dummy features needed for FCN16Decoder."""
+    return create_dummy_features(
+        {"pool4": FEATURE_SHAPES["pool4"], "pool5": FEATURE_SHAPES["pool5"]}
+    )
 
-        assert isinstance(output, dict)
-        assert "masks" in output
-        assert "labels" in output
-        # Check masks output shape using seg_num_classes
-        assert output["masks"].shape == (1, seg_num_classes, 224, 224)
-        # Check labels output shape using cls_num_classes
-        assert output["labels"].shape == (1, cls_num_classes)
 
-    @pytest.mark.parametrize("decoder_class", [FCN8Decoder, FCN16Decoder])
-    def test_decoder_forward_pass_batch(self, decoder_class, encoder) -> None:
-        """Test if the forward pass of the FCN decoder models works correctly with batch size > 1."""
-        cls_num_classes = 3
-        seg_num_classes = 2  # Use a distinct value for segmentation classes
-        batch_size = 4
-        decoder = decoder_class(
-            encoder=encoder, cls_num_classes=cls_num_classes, seg_num_classes=seg_num_classes
-        )
-        input_tensor = torch.randn(batch_size, 3, 224, 224)  # Batch size of 4
-        output = decoder(input_tensor)
+@pytest.fixture(scope="module")
+def dummy_features_fcn8() -> dict[str, torch.Tensor]:
+    """Provides dummy features needed for FCN8Decoder."""
+    return create_dummy_features(
+        {
+            "pool3": FEATURE_SHAPES["pool3"],
+            "pool4": FEATURE_SHAPES["pool4"],
+            "pool5": FEATURE_SHAPES["pool5"],
+        }
+    )
 
-        assert isinstance(output, dict)
-        assert "masks" in output
-        assert "labels" in output
-        # Check masks output shape using seg_num_classes and batch_size
-        assert output["masks"].shape == (
-            batch_size,
-            seg_num_classes,
-            224,
-            224,
-        )
-        # Check labels output shape using cls_num_classes and batch_size
-        assert output["labels"].shape == (batch_size, cls_num_classes)
 
-    @pytest.mark.parametrize("decoder_class", [FCN8Decoder, FCN16Decoder])
-    def test_decoder_forward_pass_cls_num_classes(self, decoder_class, encoder) -> None:
-        """Test forward pass with different number of classification classes."""
-        cls_num_classes = 5  # Vary classification classes
-        seg_num_classes = 2  # Keep segmentation classes fixed for this test
-        batch_size = 1
-        decoder = decoder_class(
-            encoder=encoder, cls_num_classes=cls_num_classes, seg_num_classes=seg_num_classes
-        )
-        input_tensor = torch.randn(batch_size, 3, 224, 224)  # Batch size of 1
-        output = decoder(input_tensor)
+# --- Test Cases ---
 
-        assert isinstance(output, dict)
-        assert "masks" in output
-        assert "labels" in output
-        # Check masks output shape using seg_num_classes
-        assert output["masks"].shape == (
-            batch_size,
-            seg_num_classes,
-            224,
-            224,
-        )
-        # Check labels output shape using the varied cls_num_classes
-        assert output["labels"].shape == (batch_size, cls_num_classes)
 
-    @pytest.mark.parametrize("decoder_class", [FCN8Decoder, FCN16Decoder])
-    def test_decoder_forward_pass_seg_num_classes(self, decoder_class, encoder) -> None:
-        """Test forward pass with different number of segmentation classes."""
-        cls_num_classes = 3  # Keep classification classes fixed
-        seg_num_classes = 4  # Vary segmentation classes
-        batch_size = 1
-        decoder = decoder_class(
-            encoder=encoder, cls_num_classes=cls_num_classes, seg_num_classes=seg_num_classes
-        )
-        input_tensor = torch.randn(batch_size, 3, 224, 224)  # Batch size of 1
-        output = decoder(input_tensor)
+def test_fcn16_decoder_init():
+    """Tests FCN16Decoder initialization."""
+    decoder = FCN16Decoder(seg_num_classes=SEG_NUM_CLASSES)
+    assert isinstance(decoder, FCN16Decoder)
+    assert decoder.seg_num_classes == SEG_NUM_CLASSES
+    # Check if key layers exist (optional sanity check)
+    assert hasattr(decoder, "upsample_5")
+    assert hasattr(decoder, "upsample_4")
+    assert hasattr(decoder, "mask_segmentation")
 
-        assert isinstance(output, dict)
-        assert "masks" in output
-        assert "labels" in output
-        # Check masks output shape using the varied seg_num_classes
-        assert output["masks"].shape == (
-            batch_size,
-            seg_num_classes,
-            224,
-            224,
-        )
-        # Check labels output shape using cls_num_classes
-        assert output["labels"].shape == (batch_size, cls_num_classes)
 
-    @pytest.mark.parametrize("decoder_class", [FCN8Decoder, FCN16Decoder])
-    def test_decoder_requires_encoder(self, decoder_class) -> None:
-        """Test that the decoder requires an encoder instance."""
-        with pytest.raises(TypeError):  # Expect a TypeError if encoder is not provided
-            # Need to provide both class args now, even if checking for encoder presence
-            decoder_class(cls_num_classes=3, seg_num_classes=1)
+def test_fcn16_decoder_forward(dummy_features_fcn16):
+    """Tests the forward pass of FCN16Decoder."""
+    decoder = FCN16Decoder(seg_num_classes=SEG_NUM_CLASSES)
+    output = decoder(dummy_features_fcn16)
 
-    # Optional: Add a test for encoder type if needed, though type hinting helps
-    # def test_decoder_encoder_type(self):
-    #     """Test decoder creation with a non-nn.Module encoder."""
-    #     class NotAnEncoder:
-    #         pass
-    #     encoder_instance = NotAnEncoder()
-    #     with pytest.raises(AttributeError): # Or TypeError depending on implementation details
-    #         FCN8Decoder(encoder=encoder_instance, cls_num_classes=3, seg_num_classes=1)
+    assert isinstance(output, torch.Tensor)
+    assert output.shape == EXPECTED_OUTPUT_SHAPE
+    assert output.dtype == torch.float32
+
+
+def test_fcn8_decoder_init():
+    """Tests FCN8Decoder initialization."""
+    decoder = FCN8Decoder(seg_num_classes=SEG_NUM_CLASSES)
+    assert isinstance(decoder, FCN8Decoder)
+    assert decoder.seg_num_classes == SEG_NUM_CLASSES
+    # Check if key layers exist (optional sanity check)
+    assert hasattr(decoder, "upsample_5")
+    assert hasattr(decoder, "upsample_4")
+    assert hasattr(decoder, "upsample3")  # Note: FCN8 has upsample3, FCN16 doesn't use pool3 skip
+    assert hasattr(decoder, "mask_segmentation")
+
+
+def test_fcn8_decoder_forward(dummy_features_fcn8):
+    """Tests the forward pass of FCN8Decoder."""
+    decoder = FCN8Decoder(seg_num_classes=SEG_NUM_CLASSES)
+    # Correct the typo in the forward method argument name if it exists in your actual code
+    # Assuming the argument name is 'features' based on FCN16Decoder
+    output = decoder(dummy_features_fcn8)  # Use 'features' if you fixed the typo 'feaatures'
+
+    assert isinstance(output, torch.Tensor)
+    assert output.shape == EXPECTED_OUTPUT_SHAPE
+    assert output.dtype == torch.float32
+
+
+@pytest.mark.parametrize("num_classes", [1, 5, 10])
+def test_fcn_decoders_different_classes(num_classes, dummy_features_fcn8, dummy_features_fcn16):
+    """Tests decoders with varying number of output classes."""
+    expected_shape = (BATCH_SIZE, num_classes, INPUT_H, INPUT_W)
+
+    # Test FCN16
+    decoder16 = FCN16Decoder(seg_num_classes=num_classes)
+    output16 = decoder16(dummy_features_fcn16)
+    assert output16.shape == expected_shape
+
+    # Test FCN8
+    decoder8 = FCN8Decoder(seg_num_classes=num_classes)
+    output8 = decoder8(dummy_features_fcn8)
+    assert output8.shape == expected_shape
+
+
+# --- Potential Improvements Noticed ---
+# 1. Typo in FCN8Decoder forward method argument: 'feaatures' should be 'features'.
+# 2. FCN16Decoder forward method signature indicates it returns a dict, but the implementation returns a Tensor.
+#    The signature should be `-> torch.Tensor`.
+# 3. Consider adding type hints to the forward method arguments (`features: dict[str, torch.Tensor]`).

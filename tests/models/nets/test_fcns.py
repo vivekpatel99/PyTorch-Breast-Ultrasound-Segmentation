@@ -62,7 +62,7 @@ def test_fcn16_decoder_init():
     # Check if key layers exist (optional sanity check)
     assert hasattr(decoder, "upsample_5")
     assert hasattr(decoder, "upsample_4")
-    assert hasattr(decoder, "mask_segmentation")
+    assert hasattr(decoder, "fcn16_mask_segmentation")
 
 
 def test_fcn16_decoder_forward(dummy_features_fcn16):
@@ -84,7 +84,7 @@ def test_fcn8_decoder_init():
     assert hasattr(decoder, "upsample_5")
     assert hasattr(decoder, "upsample_4")
     assert hasattr(decoder, "upsample3")  # Note: FCN8 has upsample3, FCN16 doesn't use pool3 skip
-    assert hasattr(decoder, "mask_segmentation")
+    assert hasattr(decoder, "fcn8_mask_segmentation")
 
 
 def test_fcn8_decoder_forward(dummy_features_fcn8):

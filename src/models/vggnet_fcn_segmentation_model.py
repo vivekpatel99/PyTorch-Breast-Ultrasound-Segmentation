@@ -13,12 +13,16 @@ class VGGNetFCNSegmentationModel(SegmentationBaseModel):
         classification_criterion: torch.nn.Module,
         seg_num_classes: int = 1,
         cls_num_classes: int = 3,
+        seg_weight: float = 0.95,
+        cls_weight: float = 0.05,
         vggnet_type: str = "vgg16",
         fcn_type: str = "fcn8",
     ) -> None:
         super().__init__(
             segmentation_criterion=segmentation_criterion,
             classification_criterion=classification_criterion,
+            seg_weight=seg_weight,
+            cls_weight=cls_weight,
         )
         # pool3_channels = 256 if 'bn' not in vggnet_type else 256 # Example for vgg16/19
         # pool4_channels = 512 if 'bn' not in vggnet_type else 512 # Example for vgg16/19

@@ -32,6 +32,8 @@ class MetricKey(enum.Enum):
     TOTAL_LOSS = "total_loss"
     VAL_TOTAL_LOSS = "val_total_loss"
 
+    LR = "lr"
+
 
 def accuracy(preds: Tensor, labels: Tensor) -> Tensor:
     """Calculates classification accuracy."""
@@ -55,6 +57,8 @@ class SegmentationBaseModel(nn.Module):
         self,
         segmentation_criterion: nn.Module,
         classification_criterion: nn.Module,
+        seg_weight: float = 0.95,
+        cls_weight: float = 0.05,
     ) -> None:
         """
         Initializes the BaseModel.
@@ -68,7 +72,8 @@ class SegmentationBaseModel(nn.Module):
 
         if segmentation_criterion is None or classification_criterion is None:
             raise ValueError("Both segmentation and classification criteria must be provided.")
-
+        self.seg_weight = seg_weight
+        self.cls_weight = cls_weight
         self.segmentation_criterion = segmentation_criterion
         self.classification_criterion = classification_criterion
         self.cls_auroc = AUROC(task="multiclass", num_classes=3)
@@ -163,7 +168,7 @@ class SegmentationBaseModel(nn.Module):
             "cls_acc": cls_acc,
             "cls_auroc": cls_auroc,
             # Optional: Combine losses if needed for backpropagation
-            # "total_loss": seg_loss + cls_loss # Example weighting
+            "total_loss": (self.seg_weight * seg_loss) + (self.cls_weight * cls_loss),
         }
 
     def training_step(self, batch: tuple[Tensor, dict[str, Tensor]]) -> dict[str, Tensor]:
@@ -178,7 +183,7 @@ class SegmentationBaseModel(nn.Module):
             MetricKey.CLS_ACC.value: metrics["cls_acc"],
             MetricKey.CLS_AUROC.value: metrics["cls_auroc"],
             # Return total loss if the optimizer needs it directly
-            # MetricKey.TOTAL_LOSS.value: metrics["total_loss"]
+            MetricKey.TOTAL_LOSS.value: metrics["total_loss"],
         }
 
     def validation_step(self, batch: tuple[Tensor, dict[str, Tensor]]) -> dict[str, Tensor]:
@@ -192,6 +197,7 @@ class SegmentationBaseModel(nn.Module):
             MetricKey.VAL_CLS_LOSS.value: metrics["cls_loss"].detach(),
             MetricKey.VAL_CLS_ACC.value: metrics["cls_acc"].detach(),
             MetricKey.VAL_CLS_AUROC.value: metrics["cls_auroc"].detach(),
+            MetricKey.VAL_TOTAL_LOSS.value: metrics["total_loss"],
         }
 
     def validation_epoch_end(self, outputs: list[dict[str, Tensor]]) -> dict[str, float]:
@@ -222,6 +228,8 @@ class SegmentationBaseModel(nn.Module):
         log_message = f"Epoch [{epoch}] Validation Results: "
         log_items = []
         # Use MetricKey to ensure consistent naming
+        if MetricKey.LR.value in results:
+            log_items.append(f"{MetricKey.LR.value}={results[MetricKey.LR.value]:.0e}")
         if MetricKey.TOTAL_LOSS.value in results:
             log_items.append(
                 f"{MetricKey.TOTAL_LOSS.value}={results[MetricKey.TOTAL_LOSS.value]:.4f}"

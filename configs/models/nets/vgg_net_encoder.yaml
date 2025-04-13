@@ -1,0 +1,6 @@
+_target_: src.models.nets.vgg_net_encoder.VGGNetEncoder
+pretrained_weights: DEFAULT
+model: vgg11
+requires_grad: True
+remove_fc: True
+show_params: False

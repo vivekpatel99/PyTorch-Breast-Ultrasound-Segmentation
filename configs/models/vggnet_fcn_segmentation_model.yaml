@@ -1,6 +1,13 @@
-model:
-  _target_: src.models.vggnet_fcn_segmentation_model.VGGNetFCN16SegmentationModel
-  num_classes: 3
-
 defaults:
-  - default # load values/arguments from default file
+  - default
+
+model:
+  _target_: src.models.vggnet_fcn_segmentation_model.VGGNetFCNSegmentationModel
+  segmentation_criterion: null
+  classification_criterion: null
+  seg_num_classes: 1
+  cls_num_classes: 3
+  seg_weight: 0.95
+  cls_weight: 0.05
+  vggnet_type: vgg16
+  fcn_type: fcn8

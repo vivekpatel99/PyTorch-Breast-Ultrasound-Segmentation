@@ -70,12 +70,14 @@ class SegmentationBaseModel(nn.Module):
         """
         super().__init__()
 
-        if segmentation_criterion is None or classification_criterion is None:
-            raise ValueError("Both segmentation and classification criteria must be provided.")
         self.seg_weight = seg_weight
         self.cls_weight = cls_weight
+
+        if segmentation_criterion is None or classification_criterion is None:
+            raise ValueError("Both segmentation and classification criteria must be provided.")
         self.segmentation_criterion = segmentation_criterion
         self.classification_criterion = classification_criterion
+
         self.cls_auroc = AUROC(task="multiclass", num_classes=3)
         log.info(f"Segmentation Criterion: {type(self.segmentation_criterion).__name__}")
         log.info(f"Classification Criterion: {type(self.classification_criterion).__name__}")

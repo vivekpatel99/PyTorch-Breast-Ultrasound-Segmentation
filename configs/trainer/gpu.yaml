@@ -1,6 +1,0 @@
-# configs/trainer/gpu.yaml
-defaults:
-  - default.yaml
-
-accelerator: gpu
-devices: 0

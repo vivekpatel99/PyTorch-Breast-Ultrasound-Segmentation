@@ -12,6 +12,7 @@ log = logging.getLogger(__name__)
 def evaluate(model, val_dl) -> dict[str, float]:
     model.eval()  # set model to evaluate mode
     outputs = [model.validation_step(batch) for batch in val_dl]
+
     return model.validation_epoch_end(outputs)
 
 
@@ -25,12 +26,13 @@ def fit(
     train_dataloader,
     validation_dataloader,
     optimizer: torch.optim.Optimizer,
-    reduce_lr_on_plateau: Any,
+    reduce_lr_on_plateau: Any | None = None,
     epochs: int = 2,
     device_type: str = "cuda",
     dtype=torch.float16,
 ) -> list[dict[str, float]]:
     log.info(f"Training on {device_type}")
+
     torch.cuda.empty_cache()
     history = []
     result = {}
@@ -76,12 +78,11 @@ def fit(
             # otherwise, optimizer.step() is skipped.
             scaler.step(optimizer)
 
-            # Record & update learning rate
-            lrs.append(get_lr(optimizer))
-
             # Updates the scale for next iteration.
             scaler.update()
 
+        # Record & update learning rate
+        lrs.append(get_lr(optimizer))
         # Validation Phase
         result = evaluate(model, validation_dataloader)
         result[f"{MetricKey.TOTAL_LOSS.value}"] = total_losses
@@ -91,9 +92,11 @@ def fit(
         result[f"{MetricKey.SEG_DICE.value}"] = torch.stack(masks_dice_sc).mean().item()
         result[f"{MetricKey.CLS_ACC.value}"] = torch.stack(train_accuracies).mean().item()
 
-        reduce_lr_on_plateau.step(result[f"{MetricKey.VAL_SEG_LOSS.value}"])
+        if reduce_lr_on_plateau:
+            reduce_lr_on_plateau.step(result[f"{MetricKey.VAL_SEG_LOSS.value}"])
 
         model.epoch_end(epoch, result)
         history.append(result)
+
     log.info("Finished Training")
     return history

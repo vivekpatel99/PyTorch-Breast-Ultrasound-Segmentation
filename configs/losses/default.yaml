@@ -1,0 +1,5 @@
+# configs/losses/defaults.yaml
+
+defaults:
+  - dice_loss
+  - cross_entropy

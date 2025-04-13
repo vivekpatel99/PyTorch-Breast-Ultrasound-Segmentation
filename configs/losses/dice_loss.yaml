@@ -1,0 +1,2 @@
+segmentation_criterion:
+  _target_: src.losses.dice_loss.SoftDiceLoss

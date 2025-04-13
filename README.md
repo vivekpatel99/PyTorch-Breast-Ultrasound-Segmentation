@@ -119,6 +119,8 @@ python src/train.py model.seg_weight=0.9 model.cls_weight=0.1
 
 # Reference
 
+- [torchvision](https://pytorch.org/tutorials/intermediate/torchvision_tutorial.html)
+
 - [Paper - Very Deep Convolutional Networks for Large-Scale Image Recognition](https://arxiv.org/abs/1409.1556)
 
 - [Fully Convolutional Networks for Semantic Segmentation](https://arxiv.org/abs/1411.4038)

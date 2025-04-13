@@ -12,6 +12,7 @@ defaults:
   - hydra: default
   - datamodule: breast_cancer_datamodule
   - models: vggnet_fcn_segmentation_model
+  - losses: default
   # - callbacks: default
 
   # experiment configs allow for version control of specific hyperparameters

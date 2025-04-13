@@ -1,4 +1,4 @@
 _target_: src.module.components.net.vanella_vggnet.VanellaVGGNet
 input_shape: (1, 256, 256)
 num_classes: 3
-vgg_type: vgg19
+vgg_type: vgg16

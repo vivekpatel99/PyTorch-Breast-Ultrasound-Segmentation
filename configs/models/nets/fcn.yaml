@@ -1,0 +1,2 @@
+_target_: src.models.components.nets.fcns import FCN8Decoder
+seg_num_classes: 1

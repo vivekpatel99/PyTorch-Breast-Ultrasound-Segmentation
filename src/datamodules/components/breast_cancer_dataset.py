@@ -20,16 +20,34 @@ class BreastCancerDataset(torch.utils.data.Dataset):
         self.data_dir = Path(data_dir)
         self.root_data_dir = self.data_dir.parent
         self.dataset_url = dataset_url
+
+        # --- Check for directory existence BEFORE trying to read it ---
+        if not self.data_dir.exists():
+            log.info(f"Data directory {self.data_dir} not found.")
+            if self.dataset_url:
+                log.info(f"Attempting to download dataset from {self.dataset_url}...")
+                self._download_dataset()  # Call your download method
+                # After download attempt, check again if it exists
+                if not self.data_dir.exists():
+                    # If download failed or didn't create the dir
+                    raise FileNotFoundError(
+                        f"Dataset download attempted but directory {self.data_dir} still not found."
+                    )
+            else:
+                raise ValueError(
+                    f"Data directory {self.data_dir} not found and Dataset URL not provided. Cannot proceed."
+                )
+
+        # if len(list(self.root_data_dir.iterdir())) == 0:
+        #     self._download_dataset()
         self.class_names = [_dir.stem for _dir in self.data_dir.iterdir()]
         self.num_classes = len(self.class_names)
         self.label_mapping = {name: i for i, name in enumerate(self.class_names)}
         self._class_weights: torch.Tensor | None = None
 
-        if len(list(self.root_data_dir.iterdir())) == 0:
-            self.download_dataset()
         self.images, self.masks, self.labels = self.get_data()
 
-    def download_dataset(self) -> None:
+    def _download_dataset(self) -> None:
         log.info(f"Downloading dataset from kaggle at {self.root_data_dir}")
         if self.dataset_url is None:
             raise ValueError("Dataset URL not provided")

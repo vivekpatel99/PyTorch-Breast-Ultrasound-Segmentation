@@ -4,3 +4,6 @@ batch_size: 32
 num_workers: 16
 pin_memory: True
 persistent_workers: True
+val_split: 0.2
+# grabbing random_state from train.yaml seed
+random_state: ${seed}

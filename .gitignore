@@ -214,3 +214,4 @@ data/
 logs/
 .env
 .autoenv
+model_summary.txt

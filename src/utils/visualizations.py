@@ -367,7 +367,7 @@ def create_prediction_gif(
         # You might need to install ffmpeg or imagemagick for saving animations
         # Pillow writer is often available by default for GIFs
         # ani.save(gif_path, writer='pillow', fps=(fps if fps else int(1.0/duration)))
-        ani.save(gif_path, writer="pillow", fps=1, dpi=75)
+        ani.save(gif_path, writer="pillow", fps=2, dpi=75)
         log.info("GIF saved successfully using Matplotlib Animation.")
     except Exception as e:
         log.error(f"Failed to save animation: {e}", exc_info=True)

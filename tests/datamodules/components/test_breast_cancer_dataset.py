@@ -79,7 +79,7 @@ class TestBreastCancerDataset:
         assert dataset.root_data_dir == dummy_data_dir.parent
         assert sorted(dataset.class_names) == sorted(["benign", "malignant", "normal"])
         assert dataset.num_classes == 3
-        assert dataset.label_mapping == {"benign": 2, "malignant": 1, "normal": 0}
+        assert dataset.label_mapping == {"benign": 0, "malignant": 1, "normal": 2}
         print(len(dataset.images))
         assert len(dataset.images) == 12  # Total samples
         assert len(dataset.masks) == len(dataset.images)

@@ -2,6 +2,7 @@ import logging
 from pathlib import Path
 
 import hydra
+import numpy as np
 import opendatasets as od
 import pandas as pd
 import pyrootutils
@@ -40,7 +41,8 @@ class BreastCancerDataset(torch.utils.data.Dataset):
 
         # if len(list(self.root_data_dir.iterdir())) == 0:
         #     self._download_dataset()
-        self.class_names = [_dir.stem for _dir in self.data_dir.iterdir()]
+        class_names = [_dir.stem for _dir in self.data_dir.iterdir()]
+        self.class_names = sorted(class_names)
         self.num_classes = len(self.class_names)
         self.label_mapping = {name: i for i, name in enumerate(self.class_names)}
         self._class_weights: torch.Tensor | None = None
@@ -64,9 +66,6 @@ class BreastCancerDataset(torch.utils.data.Dataset):
         label = self.labels[index]
         label_index = self.label_mapping[label]
 
-        # One-hot encode the label
-        # label_one_hot = F.one_hot(torch.tensor(label_index), num_classes=self.num_classes).float()
-
         target = {}
         target["masks"] = mask
         target["labels"] = label_index
@@ -85,7 +84,7 @@ class BreastCancerDataset(torch.utils.data.Dataset):
         data = {"images": org_images, "masks": masks, "labels": labels}
         df = pd.DataFrame(data)
         class_weights = compute_class_weight(
-            class_weight="balanced", classes=df["labels"].unique(), y=df["labels"]
+            class_weight="balanced", classes=np.array(self.class_names), y=df["labels"]
         )
         self._class_weights = torch.tensor(class_weights, dtype=torch.float32)
         log.info(f"Class weights: {self._class_weights}")

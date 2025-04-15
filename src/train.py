@@ -1,16 +1,9 @@
-import logging
 import os
 
-import hydra
-import mlflow
 import pyrootutils
-import torch
-from mlflow.models.signature import ModelSignature, infer_signature
-from omegaconf import DictConfig
-from torchinfo import summary
 
-from src.utils.gpu_utils import DeviceDataLoader, get_default_device, to_device
-from src.utils.train_utils import fit
+from evaluate import evaluate_model
+from src.utils.visualizations import plot_roc_curve
 
 root = pyrootutils.setup_root(
     search_from=__file__,
@@ -22,7 +15,27 @@ root = pyrootutils.setup_root(
 if os.getenv("DATA_ROOT") is None:
     os.environ["DATA_ROOT"] = ""
 
+import logging  # noqa: E402
+from pathlib import Path  # noqa: E402
+
+import hydra  # noqa: E402
+import mlflow  # noqa: E402
+import torch  # noqa: E402
+from mlflow.models.signature import ModelSignature, infer_signature  # noqa: E402
+from omegaconf import DictConfig, OmegaConf  # noqa: E402
+from torchinfo import summary  # noqa: E402
+
+from src.utils.gpu_utils import (  # noqa: E402
+    DeviceDataLoader,
+    get_default_device,
+    to_device,
+)
+from src.utils.train_utils import fit
+
 log = logging.getLogger(__name__)
+
+# Register a resolver for torch dtypes
+OmegaConf.register_new_resolver("torch_dtype", lambda name: getattr(torch, name))
 
 
 def model_signature(model, train_dl) -> ModelSignature:
@@ -32,9 +45,12 @@ def model_signature(model, train_dl) -> ModelSignature:
         images, _ = next(iter(train_dl))
         out = model(images)
         signature = infer_signature(
-            model_input={"image_input": images.numpy()},
+            model_input={"image_input": images.cpu().numpy()},
             model_output={
-                "output": {"masks": out["masks"].numpy(), "labels": out["labels"].numpy()}
+                "output": {
+                    "masks": out["masks"].cpu().numpy(),
+                    "labels": out["labels"].cpu().numpy(),
+                }
             },
         )
     return signature
@@ -82,10 +98,14 @@ def train(cfg: DictConfig) -> dict[str, float]:
         mlflow.log_params({"epochs": EPOCHS})
         mlflow.log_params({"batch_size": cfg.datamodule.batch_size})
         mlflow.log_params({"optimizer": cfg.models.optimizer.values()})
+
         # Log model summary.
-        with open("model_summary.txt", "w") as f:
+        results_dir = Path(cfg.paths.results_dir)
+        results_dir.mkdir(exist_ok=True)
+        summery_path = results_dir / "model_summary.txt"
+        with open(str(summery_path), "w") as f:
             f.write(str(summary(model)))
-        mlflow.log_artifact("model_summary.txt")
+        mlflow.log_artifact(str(summery_path))
 
         history = fit(
             model=model,
@@ -102,12 +122,26 @@ def train(cfg: DictConfig) -> dict[str, float]:
         # saving the trained model
         mlflow.pytorch.log_model(model, "model", signature=model_signature(model, train_dl))
         # model evaluation using val_dl
+        (test_metrics, cls_report, y_true, y_pred) = evaluate_model(
+            model=model,
+            test_loader=val_dl,
+            device=device,
+            seg_threshold=0.5,
+            class_names=data_module.classes,
+            cls_weights=data_module.class_weights,
+        )
+        mlflow.log_metrics(test_metrics)
+        mlflow.log_text(cls_report, "classification_report.txt")
         # model visualization and figure logging
+        roc_curve = plot_roc_curve(y_true, y_pred)
+        mlflow.log_figure(roc_curve, "roc_curve.png")
+
     return history[0]
 
 
-@hydra.main(config_path="../configs", config_name="train.yaml")
+@hydra.main(config_path=str(root / "configs"), config_name="train.yaml", version_base="1.3")
 def main(cfg: DictConfig) -> None:
+
     history = train(cfg)
 
 

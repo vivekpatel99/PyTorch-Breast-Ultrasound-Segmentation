@@ -6,6 +6,9 @@ root_dir: ${oc.env:PROJECT_ROOT}
 # path to data directory
 root_data_dir: ${oc.env:DATA_ROOT}
 
+# path to results directory
+results_dir: ${paths.root_dir}/results
+
 # path to logging directory
 log_dir: ${paths.root_dir}/logs/
 

@@ -1,9 +1,14 @@
 import os
+from typing import Any
 
 import pyrootutils
 
 from evaluate import evaluate_model
-from src.utils.visualizations import plot_roc_curve
+from src.utils.visualizations import (
+    create_prediction_gif,
+    plot_confusion_matrix,
+    plot_roc_curve,
+)
 
 root = pyrootutils.setup_root(
     search_from=__file__,
@@ -56,10 +61,11 @@ def model_signature(model, train_dl) -> ModelSignature:
     return signature
 
 
-def train(cfg: DictConfig) -> dict[str, float]:
+def train(cfg: DictConfig) -> tuple[dict[str, float], str, Any]:
     log.info(f"Instantiating mlflow experiment <{cfg.task_name}>")
     mlflow.set_experiment(f"{cfg.task_name}")
 
+    # -- Initialization ---
     log.info(f"Instantiating datamodule <{cfg.datamodule._target_}>")
     data_module = hydra.utils.instantiate(cfg.datamodule)
 
@@ -75,8 +81,6 @@ def train(cfg: DictConfig) -> dict[str, float]:
     torch.cuda.empty_cache()
     device = get_default_device()
 
-    # gpu_weights = to_device(class_weights, device)
-
     model = hydra.utils.instantiate(
         cfg.models.model,
         segmentation_criterion=segmentation_criterion,
@@ -84,11 +88,15 @@ def train(cfg: DictConfig) -> dict[str, float]:
     )
     model = torch.compile(model)
 
-    # gpu setup
+    # -- GPU setup ---
     train_dl = DeviceDataLoader(train_dl, device)
     val_dl = DeviceDataLoader(val_dl, device)
     to_device(model, device)
+
+    log.info(f"Instantiating optimizer <{cfg.models.optimizer._target_}>")
     optimizer = hydra.utils.instantiate(cfg.models.optimizer, params=model.parameters(), lr=1e-4)
+
+    log.info("Starting training!")
     with mlflow.start_run() as run:
         run_id = run.info.run_id
         log.info(f"run_id: {run_id}")
@@ -119,30 +127,54 @@ def train(cfg: DictConfig) -> dict[str, float]:
                 optimizer, factor=0.1, patience=5
             ),
         )
-        # saving the trained model
-        mlflow.pytorch.log_model(model, "model", signature=model_signature(model, train_dl))
-        # model evaluation using val_dl
-        (test_metrics, cls_report, y_true, y_pred) = evaluate_model(
-            model=model,
-            test_loader=val_dl,
-            device=device,
-            seg_threshold=0.5,
-            class_names=data_module.classes,
-            cls_weights=data_module.class_weights,
-        )
-        mlflow.log_metrics(test_metrics)
-        mlflow.log_text(cls_report, "classification_report.txt")
-        # model visualization and figure logging
-        roc_curve = plot_roc_curve(y_true, y_pred)
-        mlflow.log_figure(roc_curve, "roc_curve.png")
 
-    return history[0]
+        mlflow.pytorch.log_model(model, "model", signature=model_signature(model, train_dl))
+        mlflow.log_metrics(history[0])
+
+    return history[0], run_id, data_module
 
 
 @hydra.main(config_path=str(root / "configs"), config_name="train.yaml", version_base="1.3")
 def main(cfg: DictConfig) -> None:
 
-    history = train(cfg)
+    history, mlflow_run_id, data_module = train(cfg)
+    # data_module = hydra.utils.instantiate(cfg.datamodule)
+    test_ds = data_module.test_dataloader()
+    # mlflow_run_id  = '93203a9c9ae241d4a0bd58f318b01d14'
+    model = mlflow.pytorch.load_model(f"runs:/{mlflow_run_id}/model")
+    device = get_default_device()
+    model = to_device(model, device)
+    # model evaluation using val_dl
+    test_metrics, cls_report, y_true, y_pred, plot_samples = evaluate_model(
+        model=model,
+        test_loader=DeviceDataLoader(test_ds, device),
+        device=device,
+        seg_threshold=0.5,
+        class_names=data_module.classes,
+    )
+    mlflow.log_metrics(test_metrics)
+    mlflow.log_text(cls_report, "classification_report.txt")
+
+    # model visualization and figure logging
+    roc_curve = plot_roc_curve(y_true, y_pred)
+    mlflow.log_figure(roc_curve, "roc_curve.png")
+
+    cm_fig_norm = plot_confusion_matrix(y_true, y_pred, class_names=data_module.classes)
+
+    mlflow.log_figure(cm_fig_norm, "confusion_matrix.png")
+    log.info("Generating prediction visualization plot...")
+    gif_output_path = f"{cfg.paths.results_dir}/predictions_animation.gif"
+    create_prediction_gif(
+        images=plot_samples["images"],
+        true_masks=plot_samples["true_masks"],
+        pred_masks=plot_samples["pred_masks"],
+        true_labels=plot_samples["true_labels"],
+        pred_labels=plot_samples["pred_labels"],
+        class_names=data_module.classes,
+        gif_path=gif_output_path,
+        duration=5,  # Adjust speed as needed (seconds per frame)
+    )
+    mlflow.log_artifact(gif_output_path)
 
 
 if __name__ == "__main__":

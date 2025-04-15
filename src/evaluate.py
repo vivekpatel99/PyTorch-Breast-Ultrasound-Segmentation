@@ -13,7 +13,7 @@ from sklearn.metrics import classification_report
 from torch.nn import functional as F
 from tqdm.auto import tqdm
 
-from utils.visualizations import plot_confusion_matrix
+from utils.visualizations import create_prediction_gif
 
 root = pyrootutils.setup_root(
     search_from=__file__,
@@ -38,9 +38,8 @@ def evaluate_model(
     device: torch.device,
     class_names: list[str],
     seg_threshold: float = 0.5,
-    cls_weights=None,
-    num_samples_to_plot: int = 9,  # <-- Add parameter for number of samples
-) -> tuple[dict[str, float], str, np.ndarray, np.ndarray | None]:
+    num_samples_to_plot: int = 27,  # <-- Add parameter for number of samples
+) -> tuple[dict[str, float], str, np.ndarray, np.ndarray, dict | None]:
     """
     Evaluates the model on the test dataset and returns segmentation and
     classification metrics.
@@ -65,22 +64,26 @@ def evaluate_model(
     log.info("Starting model evaluation on the test set...")
     num_classes = len(class_names)
     # --- Initialize Metrics ---
-    # Segmentation Metrics
-    iou_metric = torchmetrics.JaccardIndex(task="binary", threshold=seg_threshold).to(
-        device
-    )  # Assuming binary segmentation
+    # -- Segmentation Metrics --
+    iou_metric = torchmetrics.JaccardIndex(task="binary", threshold=seg_threshold).to(device)
 
-    # Classification Metrics (adjust task based on your problem: binary, multiclass, multilabel)
-    # Assuming binary classification for this example. Change 'task' and 'num_classes' if needed.
+    # -- Classification Metrics --
     task = "multiclass"
-    cls_criterion = torch.nn.CrossEntropyLoss(weight=cls_weights)
     accuracy_metric = torchmetrics.Accuracy(task=task, num_classes=num_classes).to(device)
     auc_metric = torchmetrics.AUROC(task=task, num_classes=num_classes).to(device)
 
-    # --- Evaluation Loop ---
+    # --- Initialize lists for metrics and samples ---
     dice_metric = []
     all_preds = []
     all_labels = []
+    # Lists to store samples for visualization
+    sample_images = []
+    sample_true_masks = []
+    sample_pred_masks = []
+    sample_true_labels = []
+    sample_pred_labels = []
+    collected_samples = 0
+    # --- Evaluation Loop ---
     with torch.no_grad():  # Disable gradient calculations
         for batch in tqdm(test_loader, desc="Evaluating Test Set"):
             images, targets = batch
@@ -110,6 +113,19 @@ def evaluate_model(
             all_preds.append(preds.cpu())
             all_labels.append(labels_true.cpu())
             dice_metric.append(dice_metric_value)
+            # --- Collect Samples for Plotting ---
+            if collected_samples < num_samples_to_plot:
+                needed = num_samples_to_plot - collected_samples
+                take = min(needed, images.shape[0])  # How many to take from this batch
+
+                sample_images.extend(list(images[:take].cpu().detach()))
+                sample_true_masks.extend(list(masks_true[:take].cpu().detach()))
+                # Store probabilities for plotting, thresholding happens in plot func
+                sample_pred_masks.extend(list(masks_pred_prob[:take].cpu().detach()))
+                sample_true_labels.extend(list(labels_true[:take].cpu().detach()))
+                sample_pred_labels.extend(list(preds[:take].cpu().detach()))
+
+                collected_samples += take
 
     # --- Compute Final Metrics ---
     test_dice = sum(dice_metric) / len(dice_metric)
@@ -120,11 +136,9 @@ def evaluate_model(
     # --- Prepare data for sklearn ---
     y_pred = torch.cat(all_preds).numpy()
     y_true = torch.cat(all_labels).numpy()
+
     # --- Generate sklearn Classification Report ---
     log.info("Generating classification report...")
-    # Ensure target_names match the number of classes if provided
-
-    # Generate the report
     report_str = classification_report(
         y_true, y_pred, target_names=class_names, digits=4, output_dict=False
     )
@@ -141,12 +155,30 @@ def evaluate_model(
     log.info("Evaluation finished.")
     log.info(f"Test Metrics: {metrics}")
 
+    # --- Prepare sample dictionary ---
+    plot_samples = None
+    if num_samples_to_plot > 0 and collected_samples > 0:
+        # Ensure we only return the requested number if we over-collected slightly
+        # (though the logic above should prevent this)
+        plot_samples = {
+            "images": sample_images[:num_samples_to_plot],
+            "true_masks": sample_true_masks[:num_samples_to_plot],
+            "pred_masks": sample_pred_masks[:num_samples_to_plot],
+            "true_labels": sample_true_labels[:num_samples_to_plot],
+            "pred_labels": sample_pred_labels[:num_samples_to_plot],
+        }
+        log.info(f"Collected {len(plot_samples['images'])} samples for plotting.")
+    elif num_samples_to_plot > 0:
+        log.warning(
+            "Requested samples for plotting, but none were collected (check data loader?)."
+        )
+
     # Reset metrics for potential future use
     iou_metric.reset()
     accuracy_metric.reset()
     auc_metric.reset()
 
-    return metrics, report_str, y_true, y_pred
+    return metrics, report_str, y_true, y_pred, plot_samples
 
 
 if __name__ == "__main__":
@@ -165,19 +197,32 @@ if __name__ == "__main__":
     test_loader = DeviceDataLoader(test_dl, device)  # Wrap it
     num_classes = len(data_module.classes)
 
-    (test_metrics, cls_report, y_true, y_pred) = evaluate_model(
+    (test_metrics, cls_report, y_true, y_pred, plot_samples) = evaluate_model(
         model=model,
         test_loader=test_loader,
         device=device,
         seg_threshold=0.5,
         class_names=data_module.classes,
-        cls_weights=data_module.class_weights,
     )
     # roc_curve=plot_roc_curve(y_true, y_pred)
-    cm_fig_norm = plot_confusion_matrix(
-        y_true,
-        y_pred,
-        class_names=data_module.classes,
+    # cm_fig_norm = plot_confusion_matrix(
+    #     y_true,
+    #     y_pred,
+    #     class_names=data_module.classes,
+
+    log.info("Generating prediction visualization plot...")
+    gif_output_path = "predictions_animation.gif"  # Define output path
+
+    # Make sure data_module is accessible here or pass class_names directly
+    class_names_list = data_module.classes if "data_module" in locals() else None
+
+    create_prediction_gif(
+        images=plot_samples["images"],
+        true_masks=plot_samples["true_masks"],
+        pred_masks=plot_samples["pred_masks"],
+        true_labels=plot_samples["true_labels"],
+        pred_labels=plot_samples["pred_labels"],
+        class_names=class_names_list,
+        gif_path=gif_output_path,
+        duration=5,
     )
-    # print(test_metrics)
-    # print(cls_report)

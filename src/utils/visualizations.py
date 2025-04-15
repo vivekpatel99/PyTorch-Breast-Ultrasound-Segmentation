@@ -1,8 +1,14 @@
+import logging
+import math
+
+import matplotlib.animation as animation
 import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns
 import torch
 from sklearn.metrics import auc, confusion_matrix, roc_curve
+
+log = logging.getLogger(__name__)
 
 
 def plot_losses(history) -> None:
@@ -70,9 +76,8 @@ def plot_roc_curve(
     ax.legend(loc="lower right")
     ax.grid(True)  # Add a grid for easier reading
 
-    plt.show()  # Remove this line - let the caller decide to show or save
-    plt.close(fig)  # Close the plot window to prevent display if not needed
-
+    # plt.show()
+    plt.close(fig)
     return fig
 
 
@@ -83,7 +88,7 @@ def plot_confusion_matrix(
     figsize: tuple[int, int] = (8, 6),
     cmap: str = "Blues",
     title: str = "Confusion Matrix",
-    normalize: str | None = None,  # Options: None, 'true', 'pred', 'all'
+    normalize: str | None = None,
     fmt: str = "d",  # Format for annotations (e.g., 'd' for integer, '.2f' for float)
 ) -> plt.Figure:
     """
@@ -139,158 +144,235 @@ def plot_confusion_matrix(
     plt.setp(ax.get_yticklabels(), rotation=0)  # Keep y-labels horizontal
     fig.tight_layout()  # Adjust layout to prevent labels overlapping
 
-    plt.show()  # Optional: remove if saving programmatically
+    # plt.show()
     plt.close(fig)  # Close the plot window to prevent display if not needed
     return fig
 
 
-def plot_image_mask_predictions(
+def create_prediction_gif(
     images: list | np.ndarray | torch.Tensor,
     true_masks: list | np.ndarray | torch.Tensor,
     pred_masks: list | np.ndarray | torch.Tensor,
     true_labels: list | np.ndarray | torch.Tensor,
     pred_labels: list | np.ndarray | torch.Tensor,
+    gif_path: str,
     class_names: list[str] | None = None,
-    num_samples: int = 9,
-    figsize: tuple[int, int] = (10, 20),
+    duration: float = 1.0,  # Duration per frame in SECONDS
     mask_alpha: float = 0.5,
-    mask_cmap: str = "Reds",  # Colormap for masks
-    seed: int | None = None,  # Optional seed for reproducibility if selecting random samples
-) -> plt.Figure:
+    mask_cmap: str = "Reds",
+    samples_per_frame: int = 3,
+    figsize_scale: float = 4.0,
+    fps: int | None = None,  # Optional: Frames per second (overrides duration if set)
+) -> None:
     """
-    Plots a grid comparing original images, ground truth masks, and predicted masks.
+    Creates an animated GIF using Matplotlib Animation comparing images,
+    true masks, and predicted masks. Each frame displays a grid.
 
     Args:
-        images: List, NumPy array, or Torch tensor of original images.
-                Expected shape: (N, H, W) or (N, C, H, W) or (N, H, W, C).
-        true_masks: List, NumPy array, or Torch tensor of ground truth masks.
-                    Expected shape: (N, H, W).
-        pred_masks: List, NumPy array, or Torch tensor of predicted masks.
-                    Expected shape: (N, H, W). Should be binary (0 or 1) or probabilities.
-                    If probabilities, they will be thresholded at 0.5.
-        true_labels: List, NumPy array, or Torch tensor of ground truth labels (indices or strings).
-                     Expected shape: (N,).
-        pred_labels: List, NumPy array, or Torch tensor of predicted labels (indices or strings).
-                     Expected shape: (N,).
-        class_names: Optional list of class names to map label indices to readable names.
-        num_samples: Number of samples to plot (default is 9).
-        figsize: Figure size.
-        mask_alpha: Transparency level for mask overlays.
-        mask_cmap: Colormap used for displaying masks.
-        seed: Optional random seed for selecting samples if len(images) > num_samples.
-
-    Returns:
-        matplotlib.figure.Figure: The figure object containing the plot.
+        images: List/array/tensor of original images.
+        true_masks: List/array/tensor of ground truth masks.
+        pred_masks: List/array/tensor of predicted masks (probabilities or binary).
+        true_labels: List/array/tensor of ground truth labels.
+        pred_labels: List/array/tensor of predicted labels.
+        gif_path: Path to save the output GIF.
+        class_names: Optional list of class names.
+        duration: Duration (seconds) per frame in the GIF. Used if fps is None.
+        mask_alpha: Transparency for mask overlays.
+        mask_cmap: Colormap for masks.
+        samples_per_frame: How many samples to show in each frame (determines rows).
+        figsize_scale: Controls the size of each subplot within the frame.
+        fps: Optional frames per second for the animation. If set, overrides duration.
     """
-    if num_samples <= 0:
-        raise ValueError("num_samples must be positive.")
-
     total_available = len(images)
-    if total_available < num_samples:
-        print(
-            f"Warning: Requested {num_samples} samples, but only {total_available} are available. Plotting all available samples."
-        )
-        num_samples = total_available
-        if num_samples == 0:
-            print("No samples to plot.")
-            return plt.figure(figsize=figsize)  # Return an empty figure
+    if total_available == 0:
+        log.warning("No samples provided to create GIF.")
+        return
+    if samples_per_frame <= 0:
+        log.warning("samples_per_frame must be positive. Defaulting to 3.")
+        samples_per_frame = 3
 
-    # --- Data Selection ---
-    if total_available > num_samples:
-        if seed is not None:
-            np.random.seed(seed)
-        indices = np.random.choice(total_available, num_samples, replace=False)
-    else:
-        indices = np.arange(total_available)
+    num_cols = 3  # Fixed: Image, True Mask, Pred Mask
+    num_frames = math.ceil(total_available / samples_per_frame)
 
-    # --- Data Preparation ---
+    log.info(f"Preparing animation with {num_frames} frames using Matplotlib Animation...")
+
+    # --- Data Preparation Helpers (Keep as they were) ---
+    # ... (_prepare_data, _prepare_mask, _get_label_name remain unchanged) ...
     def _prepare_data(data, index):
+        # (Same code as before)
         item = data[index]
         if isinstance(item, torch.Tensor):
             item = item.detach().cpu().numpy()
-
-        # Handle image dimensions (assuming grayscale H,W or C,H,W or H,W,C)
         if item.ndim == 3:
-            if item.shape[0] in [1, 3]:  # Check if channel-first (C, H, W)
-                # Convert to H, W, C for matplotlib
+            if item.shape[0] in [1, 3]:
                 item = np.transpose(item, (1, 2, 0))
-            # If shape is (H, W, C), it's already fine
-        # If shape is (H, W), it's grayscale, also fine
-
-        # Squeeze single-channel dimensions for grayscale images if needed
         if item.ndim == 3 and item.shape[-1] == 1:
-            item = item.squeeze(-1)
-
-        # Normalize images to [0, 1] if they aren't already (basic check)
-        if item.max() > 1.0 and np.issubdtype(item.dtype, np.floating):
-            item = (item - item.min()) / (item.max() - item.min())
+            item = item.squeeze(axis=-1)
+        if np.issubdtype(item.dtype, np.floating) and (item.min() < 0.0 or item.max() > 1.0):
+            min_val, max_val = item.min(), item.max()
+            if max_val > min_val:
+                item = (item - min_val) / (max_val - min_val)
+            else:
+                item = np.zeros_like(item)
         elif np.issubdtype(item.dtype, np.integer):
-            item = item / 255.0  # Assuming uint8
-
+            max_val = np.iinfo(item.dtype).max if np.issubdtype(item.dtype, np.integer) else 255.0
+            item = item.astype(np.float32) / max_val if max_val > 0 else item.astype(np.float32)
+        item = np.clip(item, 0.0, 1.0)
         return item
 
     def _prepare_mask(mask_data, index):
+        # (Same code as before)
         mask = mask_data[index]
         if isinstance(mask, torch.Tensor):
             mask = mask.detach().cpu().numpy()
-        # Ensure mask is 2D (H, W)
+        original_shape = mask.shape
+        if mask.ndim > 2:
+            mask = np.squeeze(mask)
         if mask.ndim != 2:
-            raise ValueError(f"Masks should be 2D (H, W), but got shape {mask.shape}")
-        # Threshold if probabilities are provided
-        if mask.max() > 1.0 or (mask.min() < 0.0 and mask.max() <= 1.0):  # Check if not binary 0/1
-            mask = (mask > 0.5).astype(float)  # Threshold probabilities
+            raise ValueError(
+                f"Masks should be reducible to 2D (H, W), got {original_shape} -> {mask.shape} at index {index}"
+            )
+        is_proba = (
+            mask.min() >= 0.0
+            and mask.max() <= 1.0
+            and not np.all(np.logical_or(mask == 0, mask == 1))
+        )
+        if mask.max() > 1.0 or is_proba:
+            mask = (mask > 0.5).astype(float)
         return mask
 
     def _get_label_name(label_data, index):
+        # (Same code as before)
         label = label_data[index]
         if isinstance(label, torch.Tensor):
-            label = label.item()  # Get scalar value
+            label = label.item()
         if class_names:
             try:
-                return class_names[int(label)]
-            except (IndexError, ValueError):
-                return f"Unknown ({label})"  # Handle invalid index
-        return str(label)  # Return label as string if no class_names
+                int_label = int(round(label))
+                if 0 <= int_label < len(class_names):
+                    return class_names[int_label]
+                else:
+                    return f"Idx {int_label} (Out of {len(class_names)})"
+            except (ValueError, TypeError):
+                return f"Invalid Label ({label})"
+        return str(label)
 
-    # --- Plotting ---
-    fig, axes = plt.subplots(num_samples, 3, figsize=figsize)
+    # --- Set up the figure and axes (only once) ---
+    fig, axes = plt.subplots(
+        nrows=samples_per_frame,
+        ncols=num_cols,
+        figsize=(num_cols * figsize_scale, samples_per_frame * figsize_scale),
+    )
+    # Ensure axes is always a 2D array
+    if samples_per_frame == 1:
+        axes = np.array([axes])
 
-    # Handle case where num_samples = 1 separately for indexing
-    if num_samples == 1:
-        axes = np.array([axes])  # Make it 2D for consistent indexing
+    # --- Define the update function for animation ---
+    def update(frame_idx):
+        """Updates the plot content for a given frame index."""
+        log.debug(
+            f"Updating frame {frame_idx+1}/{num_frames}"
+        )  # Use debug level for less verbose output
 
-    for i, idx in enumerate(indices):
-        img = _prepare_data(images, idx)
-        true_mask = _prepare_mask(true_masks, idx)
-        pred_mask = _prepare_mask(pred_masks, idx)
-        true_label_name = _get_label_name(true_labels, idx)
-        pred_label_name = _get_label_name(pred_labels, idx)
+        # Calculate the range of sample indices for this frame
+        start_idx = frame_idx * samples_per_frame
+        end_idx = min(start_idx + samples_per_frame, total_available)
+        batch_indices = range(start_idx, end_idx)
 
-        # Determine cmap for image based on dimensions
-        img_cmap = "gray" if img.ndim == 2 else None
+        # Clear previous content and plot new data
+        for row_idx in range(samples_per_frame):
+            for col_idx in range(num_cols):
+                ax = axes[row_idx, col_idx]
+                ax.clear()  # Clear previous drawings
+                ax.axis("off")  # Turn off axis by default
+                ax.set_visible(False)  # Hide by default
 
-        # Column 1: Original Image + True Label
-        ax = axes[i, 0]
-        ax.imshow(img, cmap=img_cmap)
-        ax.set_title(f"True: {true_label_name}")
-        ax.axis("off")
+        # Plot samples for the current frame
+        for row_idx, sample_idx in enumerate(batch_indices):
+            try:
+                img = _prepare_data(images, sample_idx)
+                true_mask = _prepare_mask(true_masks, sample_idx)
+                pred_mask = _prepare_mask(pred_masks, sample_idx)
+                true_label_name = _get_label_name(true_labels, sample_idx)
+                pred_label_name = _get_label_name(pred_labels, sample_idx)
+                img_cmap = "gray" if img.ndim == 2 else None
 
-        # Column 2: Image + True Mask + True Label
-        ax = axes[i, 1]
-        ax.imshow(img, cmap=img_cmap)
-        ax.imshow(true_mask, cmap=mask_cmap, alpha=mask_alpha, vmin=0, vmax=1)  # Overlay true mask
-        ax.set_title(f"True Mask: {true_label_name}")
-        ax.axis("off")
+                # Make axes visible before plotting
+                axes[row_idx, 0].set_visible(True)
+                axes[row_idx, 1].set_visible(True)
+                axes[row_idx, 2].set_visible(True)
 
-        # Column 3: Image + Predicted Mask + Predicted Label
-        ax = axes[i, 2]
-        ax.imshow(img, cmap=img_cmap)
-        ax.imshow(
-            pred_mask, cmap=mask_cmap, alpha=mask_alpha, vmin=0, vmax=1
-        )  # Overlay predicted mask
-        ax.set_title(f"Pred Mask: {pred_label_name}")
-        ax.axis("off")
+                # Plot Image
+                ax = axes[row_idx, 0]
+                ax.imshow(img, cmap=img_cmap)
+                ax.set_title(
+                    f"Sample {sample_idx+1}\nImage (True: {true_label_name})", fontsize=10
+                )  # Adjust font size if needed
+                ax.axis("off")
 
-    plt.tight_layout(pad=0.5)  # Adjust spacing
-    # plt.show() # Optional: remove if saving programmatically or showing later
-    return fig
+                # Plot True Mask Overlay
+                ax = axes[row_idx, 1]
+                ax.imshow(img, cmap=img_cmap)
+                ax.imshow(true_mask, cmap=mask_cmap, alpha=mask_alpha, vmin=0, vmax=1)
+                ax.set_title(f"Sample {sample_idx+1}\nTrue Mask Overlay", fontsize=10)
+                ax.axis("off")
+
+                # Plot Predicted Mask Overlay
+                ax = axes[row_idx, 2]
+                ax.imshow(img, cmap=img_cmap)
+                ax.imshow(pred_mask, cmap=mask_cmap, alpha=mask_alpha, vmin=0, vmax=1)
+                ax.set_title(
+                    f"Sample {sample_idx+1}\nPred Mask (Pred: {pred_label_name})", fontsize=10
+                )
+                ax.axis("off")
+
+            except Exception as e:
+                log.error(
+                    f"Error plotting sample index {sample_idx} in frame {frame_idx}: {e}",
+                    exc_info=True,
+                )
+                # Optionally mark the subplot as errored
+                axes[row_idx, 0].set_title(
+                    f"Sample {sample_idx+1}\nError Loading", color="red", fontsize=10
+                )
+                axes[row_idx, 1].set_visible(False)
+                axes[row_idx, 2].set_visible(False)
+
+        fig.suptitle(
+            f"Frame {frame_idx + 1}/{num_frames}", fontsize=12
+        )  # Optional: Add frame number to title
+        plt.tight_layout(rect=[0, 0.03, 1, 0.97])  # Adjust rect to make space for suptitle
+
+        # Return the axes that were modified (important for blitting optimization, though not strictly needed here)
+        return [ax for row in axes for ax in row]
+
+    # --- Create the animation ---
+    # Calculate interval in milliseconds
+    interval_ms = int(duration * 1000) if fps is None else int(1000 / fps)
+
+    # Note: blit=True can improve performance but might cause issues with changing titles/layouts.
+    # Set blit=False for more robustness if experiencing problems.
+    ani = animation.FuncAnimation(
+        fig,
+        update,
+        frames=num_frames,
+        interval=interval_ms,
+        blit=False,  # Set to False for simplicity/robustness with title changes
+        repeat=True,  # Corresponds to loop=0 in imageio/pillow
+    )
+
+    # --- Save the animation ---
+    log.info(f"Saving animation to {gif_path}...")
+    try:
+        # You might need to install ffmpeg or imagemagick for saving animations
+        # Pillow writer is often available by default for GIFs
+        # ani.save(gif_path, writer='pillow', fps=(fps if fps else int(1.0/duration)))
+        ani.save(gif_path, writer="pillow", fps=1, dpi=75)
+        log.info("GIF saved successfully using Matplotlib Animation.")
+    except Exception as e:
+        log.error(f"Failed to save animation: {e}", exc_info=True)
+        log.warning(
+            "Ensure you have a suitable writer installed (e.g., 'pillow', 'imagemagick'). Try installing Pillow: pip install Pillow"
+        )
+    finally:
+        plt.close(fig)  # Close the figure after saving or if an error occurs

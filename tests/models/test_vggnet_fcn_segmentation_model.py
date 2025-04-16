@@ -99,7 +99,7 @@ def test_model_initialization(default_model):
 
 
 @pytest.mark.parametrize(
-    "vgg_type, fcn_type, seg_classes, cls_classes",
+    "vgg_type, fcn_type, seg_classes, cls_classes, seg_weight, cls_weight",  # Corrected single string
     [
         ("vgg11", "fcn8", 1, 3, 0.9, 0.1),
         ("vgg16_bn", "fcn16", 5, 2, 0.9, 0.1),
@@ -113,6 +113,8 @@ def test_model_initialization_variants(
     fcn_type,
     seg_classes,
     cls_classes,
+    seg_weight,
+    cls_weight,
 ):
     """Tests initialization with different configurations."""
     model = VGGNetFCNSegmentationModel(
@@ -122,9 +124,12 @@ def test_model_initialization_variants(
         cls_num_classes=cls_classes,
         vggnet_type=vgg_type,
         fcn_type=fcn_type,
+        seg_weight=seg_weight,
+        cls_weight=cls_weight,
     )
     assert isinstance(model, VGGNetFCNSegmentationModel)
     assert model.decoder.seg_num_classes == seg_classes
+    # Accessing the last layer of the sequential head remains correct
     assert model.classification_head.head[-1].out_features == cls_classes
     # Check FCN type loaded correctly (simple check based on class name)
     if fcn_type == "fcn8":
@@ -140,6 +145,8 @@ def test_invalid_fcn_type(dummy_segmentation_criterion, dummy_classification_cri
             segmentation_criterion=dummy_segmentation_criterion,
             classification_criterion=dummy_classification_criterion,
             fcn_type="fcn32",  # Invalid type
+            seg_weight=0.9,
+            cls_weight=0.1,
         )
 
 
@@ -176,6 +183,8 @@ def test_output_shapes(
         cls_num_classes=cls_classes,
         vggnet_type=VGG_TYPE_DEFAULT,  # Keep VGG fixed for shape consistency
         fcn_type=FCN_TYPE_DEFAULT,
+        seg_weight=0.9,
+        cls_weight=0.1,
     )
     output = model(dummy_input)
 

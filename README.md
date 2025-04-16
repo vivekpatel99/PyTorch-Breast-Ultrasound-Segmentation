@@ -256,6 +256,8 @@ While these specifications are recommended for optimal performance, the project 
 
 ## 📚 Reference
 
+- [ReCoDE-DeepLearning-Best-Practices](https://imperialcollegelondon.github.io/ReCoDE-DeepLearning-Best-Practices/)
+
 - [torchvision](https://pytorch.org/tutorials/intermediate/torchvision_tutorial.html)
 
 - [Paper - Very Deep Convolutional Networks for Large-Scale Image Recognition](https://arxiv.org/abs/1409.1556)

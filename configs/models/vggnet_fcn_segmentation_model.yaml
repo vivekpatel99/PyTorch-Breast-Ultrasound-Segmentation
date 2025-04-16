@@ -7,7 +7,7 @@ model:
   classification_criterion: null
   seg_num_classes: 1
   cls_num_classes: 3
-  seg_weight: 0.95
-  cls_weight: 0.05
-  vggnet_type: vgg13_bn
+  seg_weight: 0.99
+  cls_weight: 0.01
+  vggnet_type: vgg11_bn
   fcn_type: fcn8

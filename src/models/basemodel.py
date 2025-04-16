@@ -57,8 +57,8 @@ class SegmentationBaseModel(nn.Module):
         self,
         segmentation_criterion: nn.Module,
         classification_criterion: nn.Module,
-        seg_weight: float = 0.95,
-        cls_weight: float = 0.05,
+        seg_weight: float,
+        cls_weight: float,
     ) -> None:
         """
         Initializes the BaseModel.

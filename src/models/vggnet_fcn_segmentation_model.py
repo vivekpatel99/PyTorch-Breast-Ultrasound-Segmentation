@@ -11,10 +11,10 @@ class VGGNetFCNSegmentationModel(SegmentationBaseModel):
         self,
         segmentation_criterion: torch.nn.Module,
         classification_criterion: torch.nn.Module,
+        seg_weight: float,
+        cls_weight: float,
         seg_num_classes: int = 1,
         cls_num_classes: int = 3,
-        seg_weight: float = 0.95,
-        cls_weight: float = 0.05,
         vggnet_type: str = "vgg16",
         fcn_type: str = "fcn8",
     ) -> None:

@@ -1,7 +1,7 @@
 # configs/trainer/default.yaml
 default_root_dir: ${paths.output_dir}
 
-max_epochs: 80
+max_epochs: 100
 
 accelerator: gpu
 devices: 0

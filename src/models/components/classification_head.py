@@ -12,15 +12,15 @@ class ClassificationHead(nn.Module):
         self.head = nn.Sequential(
             nn.AdaptiveAvgPool2d(output_size=1),  # Pool features to 1x1
             nn.Flatten(),
-            nn.Linear(in_channels, 512),
-            nn.BatchNorm1d(512),
+            nn.Linear(in_channels, 32),
+            nn.BatchNorm1d(32),
             nn.ReLU(inplace=True),
-            nn.Dropout(0.5),  # Optional dropout
-            nn.Linear(512, 256),
-            nn.BatchNorm1d(256),
-            nn.ReLU(inplace=True),
-            nn.Dropout(0.5),  # Optional dropout
-            nn.Linear(256, num_classes),
+            nn.Dropout(0.7),
+            # nn.Linear(512, 256),
+            # nn.BatchNorm1d(256),
+            # nn.ReLU(inplace=True),
+            # nn.Dropout(0.5),
+            nn.Linear(32, num_classes),
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:

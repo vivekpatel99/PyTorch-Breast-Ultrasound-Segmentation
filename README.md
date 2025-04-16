@@ -13,7 +13,7 @@ The data collected at baseline include breast ultrasound images among women in a
 If you use this dataset, please cite:
 Al-Dhabyani W, Gomaa M, Khaled H, Fahmy A. Dataset of breast ultrasound images. Data in Brief. 2020 Feb;28:104863. DOI: 10.1016/j.dib.2019.104863.
 
-![first-look-at-datasets](results/unprocess-images.png)
+![first-look-at-datasets](results/orignal_datasets.png)
 
 ## ✨ Key Features
 
@@ -238,17 +238,23 @@ python src/train.py model.seg_weight=0.9 model.cls_weight=0.1
 
 Here are some sample results from the model:
 
+Result of last epoch of training
+
+```bash
+Epoch [99] Validation Results: lr=1e-05, total_loss=0.0338, cls_loss=0.1262, val_cls_loss=0.1635, cls_acc=0.9835, val_cls_acc=0.9781, cls_auroc=0.9988, val_cls_auroc=0.9958, seg_loss=0.0329, val_seg_loss=0.0702, seg_dice=0.8050, val_seg_dice=0.7951
+```
+
 ### Classification Report:
 
 | Class        | precision | recall | f1-score | support |
-| ------------ | --------- | ------ | -------- | ------- |
-| benign       | 0.9872    | 0.8652 | 0.9222   | 89      |
-| malignant    | 0.7885    | 0.9762 | 0.8723   | 42      |
+| :----------- | :-------- | :----- | :------- | :------ |
+| benign       | 0.9886    | 0.9775 | 0.9831   | 89      |
+| malignant    | 0.9762    | 0.9762 | 0.9762   | 42      |
 | normal       | 0.9643    | 1.0000 | 0.9818   | 27      |
 |              |           |        |          |         |
-| accuracy     |           |        | 0.9177   | 158     |
-| macro avg    | 0.9133    | 0.9471 | 0.9254   | 158     |
-| weighted avg | 0.9304    | 0.9177 | 0.9191   | 158     |
+| accuracy     |           |        | 0.9810   | 158     |
+| macro avg    | 0.9764    | 0.9846 | 0.9804   | 158     |
+| weighted avg | 0.9812    | 0.9810 | 0.9810   | 158     |
 
 ### Confusion Matrix:
 

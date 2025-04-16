@@ -70,8 +70,8 @@ def train(cfg: DictConfig) -> tuple[dict[str, float], str, Any]:
 
     class_weights = data_module.class_weights
 
-    # train_dl, val_dl = data_module.train_dataloader(), data_module.val_dataloader()
-    train_dl, val_dl = data_module.get_sampled_dataloader()
+    train_dl, val_dl = data_module.train_dataloader(), data_module.val_dataloader()
+    # train_dl, val_dl = data_module.get_sampled_dataloader()
 
     segmentation_criterion = hydra.utils.instantiate(cfg.losses.segmentation_criterion)
     classification_criterion = hydra.utils.instantiate(

@@ -13,10 +13,12 @@ The data collected at baseline include breast ultrasound images among women in a
 If you use this dataset, please cite:
 Al-Dhabyani W, Gomaa M, Khaled H, Fahmy A. Dataset of breast ultrasound images. Data in Brief. 2020 Feb;28:104863. DOI: 10.1016/j.dib.2019.104863.
 
-## Features
+![first-look-at-datasets](results/unprocess-images.png)
+
+## ✨ Key Features
 
 - **Combined Segmentation and Classification:** Models are designed to perform both tasks simultaneously.
-- **VGG-FCN Architecture:** Implements VGGNet (e.g., VGG16) as an encoder backbone with FCN8/FCN16 decoders for semantic segmentation.
+- **VGG-FCN Architecture:** Implements VGGNet (with all the different variations e.g vggnet11, vggnet13, vggnet16, vggnet19) as an encoder backbone with FCN8/FCN16 decoders for semantic segmentation.
 - **Modular Design:** Base model class (`SegmentationBaseModel`) handles training loops, loss calculation, and metric aggregation, allowing for easy extension with new architectures.
 - **Configuration Management:** Uses Hydra for flexible configuration via YAML files and command-line overrides.
 - **Metric Tracking:** Calculates and logs key metrics for both tasks:
@@ -24,12 +26,127 @@ Al-Dhabyani W, Gomaa M, Khaled H, Fahmy A. Dataset of breast ultrasound images. 
   - Classification: Accuracy, AUROC, Classification Loss
   - Combined: Total Weighted Loss
 - **Pre-trained Weights:** Leverages pre-trained weights for the VGGNet encoder backbone.
+- **Custom Dice loss and metric for Imbalance dataset:** `src/losses/dice_loss.py`
+
+## 🛠️ Technologies Used
+
+- **Python:** Core programming language.
+- **Pytorch:** Deep learning framework.
+- **VGGNet:** Pre-trained convolutional neural network ( with all the different variations e.g vggnet11, vggnet13 and so on) - Image classification.
+- **FCN:** Image segmentation architecture (FCN8, FCN16).
+- **Jupyter Notebook:** For exploratory data analysis (EDA), model development, and training.
+- **MLflow:** Experiment tracking and model management.
+- **Hydra:** Configuration management.
+- **Kaggle:** Dataset management and download.
+- **Docker:** Containerization for consistent environment.
+- **VS Code Dev Containers:** Development environment setup.
+- **Github Workflow:** for testing.
 
 ## Project Structure
 
-placeholder
+```
+├── configs
+│   ├── data
+│   │   ├── breast_cancer_dataset.yaml
+│   │   └── default.yaml
+│   ├── datamodule
+│   │   ├── breast_cancer_datamodule.yaml
+│   │   └── default.yaml
+│   ├── experiments
+│   ├── extras
+│   │   └── default.yaml
+│   ├── hydra
+│   │   └── default.yaml
+│   ├── losses
+│   │   ├── cross_entropy.yaml
+│   │   ├── default.yaml
+│   │   └── dice_loss.yaml
+│   ├── models
+│   │   ├── default.yaml
+│   │   ├── nets
+│   │   │   ├── fcn.yaml
+│   │   │   ├── vanella_vggnet.yaml
+│   │   │   └── vgg_net_encoder.yaml
+│   │   ├── optimizer
+│   │   │   ├── adamw.yaml
+│   │   │   └── adam.yaml
+│   │   ├── scheduler
+│   │   │   ├── cosine_anneal.yaml
+│   │   │   └── none.yaml
+│   │   └── vggnet_fcn_segmentation_model.yaml
+│   ├── paths
+│   │   └── default.yaml
+│   ├── trainer
+│   │   └── default.yaml
+│   └── train.yaml
+├── Dockerfile
+├── LICENSE
+├── node_modules
+├── notebooks
+│   ├── 01_exploratory_data_analysis.ipynb
+│   ├── 02_model_vggnet_fcn_define.ipynb
+│   ├── 02_model_vggnet_fcn_training_single_head_setup.ipynb
+│   └── 03_model_vggnet_fcn_training_both_heads_segmentation_classification_setup.ipynb
+├── pyproject.toml
+├── README.md
+├── requirements.txt
+├── results
+│   ├── model_summary.txt
+│   ├── predictions_animation.gif
+│   └── unprocess-images.png
+├── ruff.toml
+├── src
+│   ├── datamodules
+│   │   ├── breast_cancer_dataloader_module.py
+│   │   ├── components
+│   │   │   ├── breast_cancer_dataset.py
+│   │   │   ├── __init__.py
+│   │   ├── __init__.py
+│   ├── evaluate.py
+│   ├── __init__.py
+│   ├── losses
+│   │   ├── dice_loss.py
+│   │   ├── __init__.py
+│   ├── models
+│   │   ├── basemodel.py
+│   │   ├── components
+│   │   │   ├── classification_head.py
+│   │   │   ├── __init__.py
+│   │   │   ├── nets
+│   │   │   │   ├── fcns.py
+│   │   │   │   ├── __init__.py
+│   │   │   │   ├── vanilla_vggnet_feature_extractor.py
+│   │   │   │   ├── vanilla_vggnet.py
+│   │   │   │   ├── vgg_net_encoder.py
+│   │   │   │   └── vggnet_utils.py
+│   │   ├── __init__.py
+│   │   └── vggnet_fcn_segmentation_model.py
+│   ├── train.py
+│   └── utils
+│       ├── gpu_utils.py
+│       ├── train_utils.py
+│       └── visualizations.py
+├── tests
+│   ├── datamodules
+│   │   ├── components
+│   │   │   ├── __init__.py
+│   │   │   └── test_breast_cancer_dataset.py
+│   │   ├── __init__.py
+│   │   └── test_breast_cancer_dataloader_module.py
+│   ├── __init__.py
+│   ├── models
+│   │   ├── __init__.py
+│   │   ├── nets
+│   │   │   ├── __init__.py
+│   │   │   ├── test_fcns.py
+│   │   │   ├── test_vanilla_vggnet.py
+│   │   │   └── test_vggnet_encoder.py
+│   │   └── test_vggnet_fcn_segmentation_model.py
+│   └── test_configs.py
+└── uv.lock
+```
 
-## Setup & Installation
+## 🔧 Setup & Installation
 
 1. **Clone the repository:**
 
@@ -105,7 +222,7 @@ python src/train.py model.seg_weight=0.9 model.cls_weight=0.1
 
 ## Models
 
-**VGGNetFCNSegmentationModel:**\\
+**VGGNetFCNSegmentationModel:**
 
 - Uses a VGGNet encoder (vgg11, vgg13, vgg16, vgg19, with or without batch normalization). Configurable via model.vggnet_type.
 - Uses an FCN decoder (fcn8 or fcn16). Configurable via model.fcn_type.
@@ -117,7 +234,27 @@ python src/train.py model.seg_weight=0.9 model.cls_weight=0.1
 - **Validation metrics** (Losses, Dice, Accuracy, AUROC) are calculated and logged during training after each epoch.
   **(Future Work Suggestion):** Implement a separate evaluate.py script to run inference on a test set using a trained checkpoint.
 
-# Reference
+## 🚀 Results
+
+Here are some sample results from the model:
+
+### Classification Report:
+
+### Segmentation Performance:
+
+### IoU Plot:
+
+## 🖥️ Hardware Specifications
+
+This project was developed and tested on the following hardware:
+
+- **CPU:** AMD Ryzen 5900X
+- **GPU:** NVIDIA GeForce RTX 3080 (10GB VRAM)
+- **RAM:** 32 GB DDR4
+
+While these specifications are recommended for optimal performance, the project can be adapted to run on systems with less powerful hardware.
+
+## 📚 Reference
 
 - [torchvision](https://pytorch.org/tutorials/intermediate/torchvision_tutorial.html)
 

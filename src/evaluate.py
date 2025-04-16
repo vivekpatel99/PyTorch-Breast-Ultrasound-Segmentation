@@ -13,7 +13,7 @@ from sklearn.metrics import classification_report
 from torch.nn import functional as F
 from tqdm.auto import tqdm
 
-from utils.visualizations import create_prediction_gif
+from utils.visualizations import plot_score_histogram
 
 root = pyrootutils.setup_root(
     search_from=__file__,
@@ -25,7 +25,7 @@ root = pyrootutils.setup_root(
 if os.getenv("DATA_ROOT") is None:
     os.environ["DATA_ROOT"] = ""
 
-from src.losses.dice_loss import dice_coefficient_metric
+from src.losses.dice_loss import calculate_per_sample_dice, dice_coefficient_metric
 from src.utils.gpu_utils import DeviceDataLoader, get_default_device, to_device
 
 log = logging.getLogger(__name__)
@@ -39,7 +39,7 @@ def evaluate_model(
     class_names: list[str],
     seg_threshold: float = 0.5,
     num_samples_to_plot: int = 27,  # <-- Add parameter for number of samples
-) -> tuple[dict[str, float], str, np.ndarray, np.ndarray, dict | None]:
+) -> tuple[dict[str, float], str, np.ndarray, np.ndarray, dict | None, list[float]]:
     """
     Evaluates the model on the test dataset and returns segmentation and
     classification metrics.
@@ -74,6 +74,7 @@ def evaluate_model(
 
     # --- Initialize lists for metrics and samples ---
     dice_metric = []
+    all_per_sample_dice_scores = []  # for IoU plot
     all_preds = []
     all_labels = []
     # Lists to store samples for visualization
@@ -100,6 +101,9 @@ def evaluate_model(
 
             dice_metric_value = dice_coefficient_metric(masks_pred_prob, masks_true)
             iou_metric.update(masks_pred_prob, masks_true.long())
+            # Calculate per-sample Dice scores for this batch
+            per_sample_dice = calculate_per_sample_dice(masks_pred_prob, masks_true)
+            all_per_sample_dice_scores.extend(per_sample_dice.cpu().tolist())  # Store scores
 
             # --- Update Classification Metrics ---
             accuracy_metric.update(labels_pred_logits, labels_true)
@@ -178,7 +182,7 @@ def evaluate_model(
     accuracy_metric.reset()
     auc_metric.reset()
 
-    return metrics, report_str, y_true, y_pred, plot_samples
+    return metrics, report_str, y_true, y_pred, plot_samples, all_per_sample_dice_scores
 
 
 if __name__ == "__main__":
@@ -188,7 +192,7 @@ if __name__ == "__main__":
         cfg: DictConfig = compose(config_name="train.yaml")
     device = get_default_device()
 
-    model_uri = "runs:/d5bffd078a4448bc895872a7af270dd0/model"
+    model_uri = "runs:/9e8bf41b6504436a89618d9ff411f88a/model"
 
     model = mlflow.pytorch.load_model(model_uri)
     model = to_device(model, device)
@@ -197,12 +201,14 @@ if __name__ == "__main__":
     test_loader = DeviceDataLoader(test_dl, device)  # Wrap it
     num_classes = len(data_module.classes)
 
-    (test_metrics, cls_report, y_true, y_pred, plot_samples) = evaluate_model(
-        model=model,
-        test_loader=test_loader,
-        device=device,
-        seg_threshold=0.5,
-        class_names=data_module.classes,
+    (test_metrics, cls_report, y_true, y_pred, plot_samples, per_sample_dice_scores) = (
+        evaluate_model(
+            model=model,
+            test_loader=test_loader,
+            device=device,
+            seg_threshold=0.5,
+            class_names=data_module.classes,
+        )
     )
     # roc_curve=plot_roc_curve(y_true, y_pred)
     # cm_fig_norm = plot_confusion_matrix(
@@ -216,13 +222,16 @@ if __name__ == "__main__":
     # Make sure data_module is accessible here or pass class_names directly
     class_names_list = data_module.classes if "data_module" in locals() else None
 
-    create_prediction_gif(
-        images=plot_samples["images"],
-        true_masks=plot_samples["true_masks"],
-        pred_masks=plot_samples["pred_masks"],
-        true_labels=plot_samples["true_labels"],
-        pred_labels=plot_samples["pred_labels"],
-        class_names=class_names_list,
-        gif_path=gif_output_path,
-        duration=5,
-    )
+    # create_prediction_gif(
+    #     images=plot_samples["images"],
+    #     true_masks=plot_samples["true_masks"],
+    #     pred_masks=plot_samples["pred_masks"],
+    #     true_labels=plot_samples["true_labels"],
+    #     pred_labels=plot_samples["pred_labels"],
+    #     class_names=class_names_list,
+    #     gif_path=gif_output_path,
+    #     duration=5,
+    # )
+    hist_fig = plot_score_histogram(per_sample_dice_scores, score_type="Dice")
+    hist_output_path = "dice_score_histogram.png"
+    hist_fig.savefig(hist_output_path)

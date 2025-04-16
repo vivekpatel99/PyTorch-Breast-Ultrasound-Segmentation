@@ -9,5 +9,5 @@ model:
   cls_num_classes: 3
   seg_weight: 0.95
   cls_weight: 0.05
-  vggnet_type: vgg16
+  vggnet_type: vgg13_bn
   fcn_type: fcn8

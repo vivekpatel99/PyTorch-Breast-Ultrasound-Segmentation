@@ -1,4 +1,4 @@
-# PyTorch Breast Ultrasound Segmentation & Classification
+## 🩺 PyTorch Breast Ultrasound Segmentation & Classification
 
 This project implements deep learning models using PyTorch for segmenting lesions and classifying tissue types (e.g., benign, malignant, normal) in breast ultrasound images. It utilizes a VGGNet encoder combined with an FCN decoder for segmentation and includes a separate head for classification. Configuration is managed using Hydra.
 
@@ -183,7 +183,7 @@ Al-Dhabyani W, Gomaa M, Khaled H, Fahmy A. Dataset of breast ultrasound images. 
 - Ensure the path specified in `DATA_ROOT` within your `.env` file points to the correct location.
 - Modify the data loading and preprocessing steps in `src/data` and the corresponding Hydra configuration (`configs/data/*.yaml`) if your dataset structure differs.
 
-## Configuration
+## ⚙️ Configuration
 
 - This project uses Hydra for managing configurations.
 - The main configuration file is `configs/train.yaml`.
@@ -196,7 +196,7 @@ Al-Dhabyani W, Gomaa M, Khaled H, Fahmy A. Dataset of breast ultrasound images. 
 python src/train.py model=vggnet_fcn_fcn16 trainer.learning_rate=0.0005
 ```
 
-## Training
+## 🏋️ Training
 
 1. Configure: Adjust parameters in the configs/\*\*/\*.yaml files as needed (e.g., batch size, epochs, learning rate, model type, loss weights).
 2. Run Training: Execute the main training script:
@@ -234,15 +234,33 @@ python src/train.py model.seg_weight=0.9 model.cls_weight=0.1
 - **Validation metrics** (Losses, Dice, Accuracy, AUROC) are calculated and logged during training after each epoch.
   **(Future Work Suggestion):** Implement a separate evaluate.py script to run inference on a test set using a trained checkpoint.
 
-## 🚀 Results
+## 📈 Results & Visualizations
 
 Here are some sample results from the model:
 
 ### Classification Report:
 
+| Class        | precision | recall | f1-score | support |
+| ------------ | --------- | ------ | -------- | ------- |
+| benign       | 0.9872    | 0.8652 | 0.9222   | 89      |
+| malignant    | 0.7885    | 0.9762 | 0.8723   | 42      |
+| normal       | 0.9643    | 1.0000 | 0.9818   | 27      |
+|              |           |        |          |         |
+| accuracy     |           |        | 0.9177   | 158     |
+| macro avg    | 0.9133    | 0.9471 | 0.9254   | 158     |
+| weighted avg | 0.9304    | 0.9177 | 0.9191   | 158     |
+
+### Confusion Matrix:
+
+![Confusion Matrix](results/confusion_matrix.png)
+
 ### Segmentation Performance:
 
-### IoU Plot:
+![Segmentation Performance](results/predictions_animation.gif)
+
+### Dice Score Histogram Plot:
+
+![Dice Score Histogram ](results/dice_score_histogram.png)
 
 ## 🖥️ Hardware Specifications
 

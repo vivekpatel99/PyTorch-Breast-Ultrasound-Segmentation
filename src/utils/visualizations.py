@@ -162,7 +162,7 @@ def create_prediction_gif(
     mask_cmap: str = "Reds",
     samples_per_frame: int = 3,
     figsize_scale: float = 4.0,
-    fps: int | None = None,  # Optional: Frames per second (overrides duration if set)
+    fps: int | None = 2,
 ) -> None:
     """
     Creates an animated GIF using Matplotlib Animation comparing images,
@@ -364,10 +364,7 @@ def create_prediction_gif(
     # --- Save the animation ---
     log.info(f"Saving animation to {gif_path}...")
     try:
-        # You might need to install ffmpeg or imagemagick for saving animations
-        # Pillow writer is often available by default for GIFs
-        # ani.save(gif_path, writer='pillow', fps=(fps if fps else int(1.0/duration)))
-        ani.save(gif_path, writer="pillow", fps=2, dpi=75)
+        ani.save(gif_path, writer="pillow", fps=fps, dpi=75)
         log.info("GIF saved successfully using Matplotlib Animation.")
     except Exception as e:
         log.error(f"Failed to save animation: {e}", exc_info=True)
@@ -376,3 +373,68 @@ def create_prediction_gif(
         )
     finally:
         plt.close(fig)  # Close the figure after saving or if an error occurs
+
+
+def plot_score_histogram(
+    scores: list[float],
+    score_type: str = "IoU",
+    bins: int | str = "auto",
+    figsize: tuple[int, int] = (10, 6),
+    title: str | None = None,
+    color: str = "skyblue",
+    edgecolor: str = "black",  # Added edgecolor for clarity
+) -> plt.Figure:
+    """
+    Plots a simplified histogram of segmentation scores (e.g., IoU, Dice)
+    using Matplotlib.
+
+    Args:
+        scores: A list of per-sample scores.
+        score_type: The name of the score metric (e.g., 'IoU', 'Dice').
+        bins: Number of bins or binning strategy for the histogram (e.g., 20, 'auto').
+        figsize: Figure size.
+        title: Optional plot title. If None, a default title is generated.
+        color: Color for the histogram bars.
+        edgecolor: Color for the edges of the histogram bars.
+
+    Returns:
+        matplotlib.figure.Figure: The figure object containing the histogram.
+    """
+    if not scores:
+        log.warning(f"Cannot plot histogram: Received empty list of {score_type} scores.")
+        # Return an empty figure
+        fig, ax = plt.subplots(figsize=figsize)
+        ax.text(0.5, 0.5, f"No {score_type} scores provided.", ha="center", va="center")
+        ax.set_title(f"Empty {score_type} Score Data")
+        plt.close(fig)
+        return fig
+
+    scores_arr = np.array(scores)
+    mean_score = np.mean(scores_arr)
+
+    fig, ax = plt.subplots(figsize=figsize)
+
+    # Use basic Matplotlib histogram
+    ax.hist(scores_arr, bins=bins, color=color, edgecolor=edgecolor)
+
+    # Add vertical line for the mean score
+    ax.axvline(
+        mean_score, color="r", linestyle="dashed", linewidth=1.5, label=f"Mean: {mean_score:.3f}"
+    )
+
+    # Set title and labels
+    if title is None:
+        title = f"Distribution of Per-Sample {score_type} Scores (N={len(scores_arr)})"
+    ax.set_title(title, fontsize=14)
+    ax.set_xlabel(f"{score_type} Score", fontsize=12)
+    ax.set_ylabel("Frequency (Number of Samples)", fontsize=12)
+
+    # Add legend for the mean line
+    ax.legend()
+
+    # Optional: Add a light grid for the y-axis if desired
+    # ax.grid(axis='y', linestyle='--', alpha=0.7)
+
+    fig.tight_layout()
+    plt.close(fig)  # Prevent immediate display when called from script
+    return fig

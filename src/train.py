@@ -8,6 +8,7 @@ from src.utils.visualizations import (
     create_prediction_gif,
     plot_confusion_matrix,
     plot_roc_curve,
+    plot_score_histogram,
 )
 
 root = pyrootutils.setup_root(
@@ -26,15 +27,13 @@ from pathlib import Path  # noqa: E402
 import hydra  # noqa: E402
 import mlflow  # noqa: E402
 import torch  # noqa: E402
-from mlflow.models.signature import ModelSignature, infer_signature  # noqa: E402
+from mlflow.models.signature import ModelSignature  # noqa: E402
+from mlflow.models.signature import infer_signature
 from omegaconf import DictConfig, OmegaConf  # noqa: E402
 from torchinfo import summary  # noqa: E402
 
-from src.utils.gpu_utils import (  # noqa: E402
-    DeviceDataLoader,
-    get_default_device,
-    to_device,
-)
+from src.utils.gpu_utils import DeviceDataLoader  # noqa: E402
+from src.utils.gpu_utils import get_default_device, to_device
 from src.utils.train_utils import fit
 
 log = logging.getLogger(__name__)
@@ -71,7 +70,8 @@ def train(cfg: DictConfig) -> tuple[dict[str, float], str, Any]:
 
     class_weights = data_module.class_weights
 
-    train_dl, val_dl = data_module.train_dataloader(), data_module.val_dataloader()
+    # train_dl, val_dl = data_module.train_dataloader(), data_module.val_dataloader()
+    train_dl, val_dl = data_module.get_sampled_dataloader()
 
     segmentation_criterion = hydra.utils.instantiate(cfg.losses.segmentation_criterion)
     classification_criterion = hydra.utils.instantiate(
@@ -140,29 +140,33 @@ def main(cfg: DictConfig) -> None:
     history, mlflow_run_id, data_module = train(cfg)
     # data_module = hydra.utils.instantiate(cfg.datamodule)
     test_ds = data_module.test_dataloader()
-    # mlflow_run_id  = '93203a9c9ae241d4a0bd58f318b01d14'
     model = mlflow.pytorch.load_model(f"runs:/{mlflow_run_id}/model")
     device = get_default_device()
     model = to_device(model, device)
     # model evaluation using val_dl
-    test_metrics, cls_report, y_true, y_pred, plot_samples = evaluate_model(
-        model=model,
-        test_loader=DeviceDataLoader(test_ds, device),
-        device=device,
-        seg_threshold=0.5,
-        class_names=data_module.classes,
+    test_metrics, cls_report, y_true, y_pred, plot_samples, per_sample_dice_scores = (
+        evaluate_model(
+            model=model,
+            test_loader=DeviceDataLoader(test_ds, device),
+            device=device,
+            seg_threshold=0.5,
+            class_names=data_module.classes,
+        )
     )
     mlflow.log_metrics(test_metrics)
     mlflow.log_text(cls_report, "classification_report.txt")
+
+    log.info("Generating prediction visualization plot...")
 
     # model visualization and figure logging
     roc_curve = plot_roc_curve(y_true, y_pred)
     mlflow.log_figure(roc_curve, "roc_curve.png")
 
     cm_fig_norm = plot_confusion_matrix(y_true, y_pred, class_names=data_module.classes)
-
+    cm_fig_norm_path = f"{cfg.paths.results_dir}/confusion_matrix.png"
+    cm_fig_norm.savefig(cm_fig_norm_path)
     mlflow.log_figure(cm_fig_norm, "confusion_matrix.png")
-    log.info("Generating prediction visualization plot...")
+
     gif_output_path = f"{cfg.paths.results_dir}/predictions_animation.gif"
     create_prediction_gif(
         images=plot_samples["images"],
@@ -172,9 +176,13 @@ def main(cfg: DictConfig) -> None:
         pred_labels=plot_samples["pred_labels"],
         class_names=data_module.classes,
         gif_path=gif_output_path,
-        duration=5,  # Adjust speed as needed (seconds per frame)
+        duration=5,
     )
     mlflow.log_artifact(gif_output_path)
+    hist_fig = plot_score_histogram(per_sample_dice_scores, score_type="Dice")
+    hist_output_path = f"{cfg.paths.results_dir}/dice_score_histogram.png"
+    hist_fig.savefig(hist_output_path)
+    mlflow.log_figure(hist_fig, "dice_score_histogram.png")
 
 
 if __name__ == "__main__":

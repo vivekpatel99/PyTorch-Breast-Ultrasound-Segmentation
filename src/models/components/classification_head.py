@@ -16,10 +16,6 @@ class ClassificationHead(nn.Module):
             nn.BatchNorm1d(32),
             nn.ReLU(inplace=True),
             nn.Dropout(0.7),
-            # nn.Linear(512, 256),
-            # nn.BatchNorm1d(256),
-            # nn.ReLU(inplace=True),
-            # nn.Dropout(0.5),
             nn.Linear(32, num_classes),
         )
 

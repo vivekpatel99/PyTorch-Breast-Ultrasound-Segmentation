@@ -1,6 +1,7 @@
 ## 🩺 PyTorch Breast Ultrasound Segmentation & Classification
 
 This project implements deep learning models using PyTorch for segmenting lesions and classifying tissue types (e.g., benign, malignant, normal) in breast ultrasound images. It utilizes a VGGNet encoder combined with an FCN decoder for segmentation and includes a separate head for classification. Configuration is managed using Hydra.
+This project explores the effectiveness of combining a well-established classification backbone (VGGNet) with FCN decoders for simultaneous lesion segmentation and tissue classification in ultrasound images, aiming to provide a strong baseline model for this task.
 
 ## About Dataset
 
@@ -26,7 +27,7 @@ Al-Dhabyani W, Gomaa M, Khaled H, Fahmy A. Dataset of breast ultrasound images. 
   - Classification: Accuracy, AUROC, Classification Loss
   - Combined: Total Weighted Loss
 - **Pre-trained Weights:** Leverages pre-trained weights for the VGGNet encoder backbone.
-- **Custom Dice loss and metric for Imbalance dataset:** `src/losses/dice_loss.py`
+- **Custom Dice Loss & Metric:** Includes implementations specifically designed to handle potential class imbalance in segmentation tasks (see src/losses/dice_loss.py).
 
 ## 🛠️ Technologies Used
 
@@ -176,7 +177,7 @@ Al-Dhabyani W, Gomaa M, Khaled H, Fahmy A. Dataset of breast ultrasound images. 
      ```
    - The `train.py` script uses `pyrootutils` and `dotenv` to automatically load this.
 
-## Dataset
+## Data Configuration
 
 - The project expects a dataset containing breast ultrasound images, corresponding segmentation masks, and classification labels.
 - The dataloader (defined in `src/data`) should be configured to load images (e.g., `[B, C, H, W]`), masks (e.g., `[B, 1, H, W]`), and labels (e.g., `[B]`).
@@ -228,11 +229,6 @@ python src/train.py model.seg_weight=0.9 model.cls_weight=0.1
 - Uses an FCN decoder (fcn8 or fcn16). Configurable via model.fcn_type.
 - Includes a separate classification head operating on the encoder's features.
 - Outputs both segmentation logits (masks) and classification logits (labels).
-
-## Evaluation
-
-- **Validation metrics** (Losses, Dice, Accuracy, AUROC) are calculated and logged during training after each epoch.
-  **(Future Work Suggestion):** Implement a separate evaluate.py script to run inference on a test set using a trained checkpoint.
 
 ## 📈 Results & Visualizations
 

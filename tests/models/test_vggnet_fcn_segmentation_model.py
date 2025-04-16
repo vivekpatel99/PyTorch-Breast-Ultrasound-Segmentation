@@ -80,6 +80,8 @@ def default_model(
         cls_num_classes=CLS_NUM_CLASSES_DEFAULT,
         vggnet_type=VGG_TYPE_DEFAULT,
         fcn_type=FCN_TYPE_DEFAULT,
+        seg_weight=0.9,
+        cls_weight=0.1,
     )
 
 
@@ -99,9 +101,9 @@ def test_model_initialization(default_model):
 @pytest.mark.parametrize(
     "vgg_type, fcn_type, seg_classes, cls_classes",
     [
-        ("vgg11", "fcn8", 1, 3),
-        ("vgg16_bn", "fcn16", 5, 2),
-        ("vgg19", "fcn8", 1, 10),
+        ("vgg11", "fcn8", 1, 3, 0.9, 0.1),
+        ("vgg16_bn", "fcn16", 5, 2, 0.9, 0.1),
+        ("vgg19", "fcn8", 1, 10, 0.9, 0.1),
     ],
 )
 def test_model_initialization_variants(

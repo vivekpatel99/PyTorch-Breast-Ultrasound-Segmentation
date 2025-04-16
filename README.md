@@ -7,6 +7,14 @@ This project explores the effectiveness of combining a well-established classifi
 
 Breast cancer is one of the most common causes of death among women worldwide. Early detection helps in reducing the number of early deaths. The data reviews the medical images of breast cancer using ultrasound scan. Breast Ultrasound Dataset is categorized into three classes: normal, benign, and malignant images. Breast ultrasound images can produce great results in classification, detection, and segmentation of breast cancer when combined with machine learning.
 
+### Good To Know Info.
+
+**Benign vs. Malignant:**
+
+**Benign:** These are abnormal growths or lesions that are not cancerous. They tend to grow slowly and do not spread to other parts of the body. While they might require monitoring or removal, they are generally not life-threatening.
+
+**Malignant:** These are cancerous tumors. They have the potential to grow aggressively, invade nearby tissues, and spread (metastasize) to distant parts of the body through the bloodstream or lymphatic system. Early detection and treatment of malignant tumors are crucial.
+
 ### Data
 
 The data collected at baseline include breast ultrasound images among women in ages between 25 and 75 years old. This data was collected in 2018. The number of patients is 600 female patients. The dataset consists of 780 images with an average image size of 500\*500 pixels. The images are in PNG format. The ground truth images are presented with original images. The images are categorized into three classes, which are normal, benign, and malignant.

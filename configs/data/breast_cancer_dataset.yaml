@@ -1,0 +1,6 @@
+# configs/data/breast_cancer_dataset.yaml
+
+# Kaggle dataset information
+dataset_name: breast-ultrasound-images-dataset
+dataset_dir: data/breast-ultrasound-images-dataset/Dataset_BUSI_with_GT
+url: https://www.kaggle.com/datasets/aryashah2k/breast-ultrasound-images-dataset
